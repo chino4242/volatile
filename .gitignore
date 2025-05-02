@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+server/node_modules/
+client/node_modules/
+
+#React build output
+/client/build/
+
+# Environment variables file
+.env
+server/.env
+
+#Optional Mac files
+.DS_Store
