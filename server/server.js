@@ -11,7 +11,7 @@ app.use(express.json()); //Middleware to parse JSON bodies
 
 //Simple API route
 app.get('/api/hello', (req, res) => {
-    res.json({ message: 'Hello from Backend!' }); // Send JSON response
+    res.json({ message: 'Welcome to the brains behind Volatile Creative' }); // Send JSON response
 });
 
 //Start the server

@@ -14,7 +14,7 @@ function App() {
   return (
     <div className = "App">
       <header className ="App-header">
-        <h1>Hello Mala: from Volatile Creative (AKA Papo)</h1>
+        <h1>This will be fantasy football analysis someday:</h1>
         <p>Message from backend: {message || 'Loading...'}</p>
       </header>
     </div>
