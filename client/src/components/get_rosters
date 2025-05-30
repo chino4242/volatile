@@ -1,0 +1,8 @@
+import requests
+import pandas as pd
+
+rosters = requests.get("https://api.sleeper.app/v1/league/1200992049558454272/rosters")
+
+roster_data = rosters.json()
+
+print(roster_data)
