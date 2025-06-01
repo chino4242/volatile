@@ -19,7 +19,7 @@ function RosterDisplay() {
       setError(null);
       try {
         // Ensure your backend is running and accessible at this URL
-        const response = await fetch(`http://localhost:5000/api/league/${leagueId}/roster/${rosterId}`);
+        const response = await fetch(`https://localhost:5000/api/league/${leagueId}/roster/${rosterId}`);
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ // Try to parse error, fallback if not JSON
