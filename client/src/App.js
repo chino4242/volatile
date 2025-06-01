@@ -1,23 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import './App.css';
+// client/src/App.js
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import HomePage from './pages/HomePage'; // Import your HomePage component
+import RosterDisplay from './pages/RosterDisplay';
+// import './App.css'; // Or your main CSS
 
 function App() {
-  const [message, setMessage] = useState(''); //State to hold backend message
-
-  useEffect(() => {
-    //Fetch data from backend API when component mounts
-    fetch(`${process.env.REACT_APP_API_URL}/api/hello`).then(response => response.json()).then(data => {
-      setMessage(data.message);
-    }).catch(error=> console.error('Error fetching data:', error));
-  },);
-
   return (
-    <div className = "App">
-      <header className ="App-header">
-        <h1>Volatile Dynasty Fantasy Football 📈</h1>
-        <p>Message from backend: {message || 'Loading...'}</p>
-      </header>
-    </div>
+    <Router>
+      {/* You could have a Navbar or other shared layout components here, outside <Routes> */}
+      {/* For example: <Navbar /> */}
+      <Routes>
+        {/* This is the new route for the homepage */}
+        <Route path="/" element={<HomePage />} />
+
+        {/* Your existing route for roster display */}
+        <Route path="/league/:leagueId/roster/:rosterId" element={<RosterDisplay />} />
+
+        {/* Optional: Add a "catch-all" route for 404 Not Found pages */}
+        {/* <Route path="*" element={<div><h2>Page Not Found</h2><Link to="/">Go Home</Link></div>} /> */}
+      </Routes>
+    </Router>
   );
 }
+
 export default App;

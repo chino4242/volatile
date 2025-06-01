@@ -1,21 +1,62 @@
-const express = require('express'); // Import Express Framework
-const cors = require('cors'); //Import CORS middleware (install later)
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('SERVER CRITICAL ERROR: Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+process.on('uncaughtException', (error) => {
+  console.error('SERVER CRITICAL ERROR: Uncaught Exception:', error);
+  process.exit(1);
+});
 
-const app = express(); //Create an Express application instance
-const PORT = process.env.PORT | 5000; // Define port: user render's env var or 5000 locally
+const express = require('express');
+const cors = require('cors');
+const path = require('path'); 
 
-//Middleware
+const rosterRoutes = require('./routes/rosterRoutes'); 
 
-app.use(cors()); //Enable CORS for all origins (for local development)
-app.use(express.json()); //Middleware to parse JSON bodies
+const app = express();
+const PORT = process.env.PORT || 5000;
 
-//Simple API route
+// Middleware
+app.use(cors()); // Enable CORS
+app.use(express.json()); // Parse JSON bodies
+
+
+app.use('/api', rosterRoutes);
+
 app.get('/api/hello', (req, res) => {
-    res.json({ message: 'Welcome to the brains behind Volatile Creative' }); // Send JSON response
+    res.json({ message: 'Welcome to the brains behind Volatile Creative - Main Server Speaking!' });
 });
 
-//Start the server
-app.listen(PORT, () => {
-    console.log(`Server is running on ${PORT}`);
+// Optional: Serve static assets from React build in production
+if (process.env.NODE_ENV === 'production') {
+app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
+app.get('*', (req, res) => {
+res.sendFile(path.resolve(__dirname, '..', 'client', 'build', 'index.html'));
+});
+}
+
+// Start the server
+const serverInstance = app.listen(PORT, () => {
+    console.log(`Server is running and listening on http://localhost:${PORT}`);
+    console.log('Press Ctrl+C to stop the server.');
 });
 
+serverInstance.on('error', (error) => {
+    if (error.syscall !== 'listen') {
+        throw error;
+    }
+    const bind = typeof PORT === 'string' ? 'Pipe ' + PORT : 'Port ' + PORT;
+    switch (error.code) {
+        case 'EACCES':
+            console.error(`SERVER STARTUP ERROR: ${bind} requires elevated privileges.`);
+            process.exit(1);
+            break;
+        case 'EADDRINUSE':
+            console.error(`SERVER STARTUP ERROR: ${bind} is already in use.`);
+            process.exit(1);
+            break;
+        default:
+            console.error(`An error occurred with the server: ${error.message}`);
+            throw error;
+    }
+});
