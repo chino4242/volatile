@@ -1,24 +1,20 @@
-// client/src/App.js
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import HomePage from './pages/HomePage'; // Import your HomePage component
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom'; // Import Navigate
+import HomePage from './pages/HomePage';       // You might keep this for other purposes or remove if not needed
 import RosterDisplay from './pages/RosterDisplay';
-// import './App.css'; // Or your main CSS
+
+const KAIOTY_LEAGUE_ID = "1200992049558454272";
+const KAIOTY_ROSTER_ID = "9";                   
 
 function App() {
   return (
     <Router>
-      {/* You could have a Navbar or other shared layout components here, outside <Routes> */}
-      {/* For example: <Navbar /> */}
       <Routes>
-        {/* This is the new route for the homepage */}
-        <Route path="/" element={<HomePage />} />
-
-        {/* Your existing route for roster display */}
+        <Route 
+          path="/" 
+          element={<Navigate replace to={`/league/${KAIOTY_LEAGUE_ID}/roster/${KAIOTY_ROSTER_ID}`} />} 
+        />
         <Route path="/league/:leagueId/roster/:rosterId" element={<RosterDisplay />} />
-
-        {/* Optional: Add a "catch-all" route for 404 Not Found pages */}
-        {/* <Route path="*" element={<div><h2>Page Not Found</h2><Link to="/">Go Home</Link></div>} /> */}
       </Routes>
     </Router>
   );
