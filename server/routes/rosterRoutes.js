@@ -6,7 +6,7 @@ const { loadAllPlayersData, createManagerRosterList } = require('../services/pla
 const router = express.Router();
 
 // GET specific roster details for a league
-router.get('/league/:leagueId/roster/:rosterId', async (req, res) => {
+router.get('/league/:leagueId([^/]+)/roster/:rosterId([^/]+)', async (req, res) => {
     const { leagueId, rosterId } = req.params;
     const userUrlTemplate = "https://api.sleeper.app/v1/user/{user_id}";
 
