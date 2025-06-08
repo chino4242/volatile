@@ -29,12 +29,12 @@ app.use(express.json());
 // vvvv KEEP THIS COMMENTED OUT vvvv
 // app.use('/api', rosterRoutes);
 
-if (process.env.NODE_ENV === 'production') {
-     app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
-    app.get('*', (req, res) => {
-         res.sendFile(path.resolve(__dirname, '..', 'client', 'build', 'index.html'));
-     });
-}
+//if (process.env.NODE_ENV === 'production') {
+//     app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
+//    app.get('*', (req, res) => {
+//         res.sendFile(path.resolve(__dirname, '..', 'client', 'build', 'index.html'));
+//     });
+//}
 
 
 // Start the server - THIS IS THE ONLY PART LEFT THAT USES THE 'app'
