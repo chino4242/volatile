@@ -16,7 +16,7 @@ const cors = require('cors');
 const path = require('path');
 
 // vvvv KEEP THIS COMMENTED OUT vvvv
-// const rosterRoutes = require('./routes/rosterRoutes'); 
+const rosterRoutes = require('./routes/rosterRoutes'); 
 
 const app = express();
 const PORT = process.env.PORT || 5000;
