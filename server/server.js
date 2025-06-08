@@ -29,12 +29,6 @@ app.use(express.json());
 // vvvv KEEP THIS COMMENTED OUT vvvv
 // app.use('/api', rosterRoutes);
 
-
- app.get('/api/hello', (req, res) => {
-     res.json({ message: 'Welcome to the brains behind Volatile Creative - Main Server Speaking!' });
- });
-
-
 if (process.env.NODE_ENV === 'production') {
      app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
     app.get('*', (req, res) => {
