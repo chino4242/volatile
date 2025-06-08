@@ -1,74 +1,101 @@
-import React, { useState, useEffect } from 'react';
+// client/src/pages/RosterDisplay.jsx
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
+import { get } from '../api/apiService';
 
 function RosterDisplay() {
-  const { leagueId, rosterId } = useParams(); // Get leagueId and rosterId from URL
+  const { leagueId, rosterId } = useParams();
   const [rosterData, setRosterData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // === FOR DEBUGGING MOBILE ISSUE ===
+  // State to hold the URL we are trying to fetch, so we can display it.
+  const [debugApiUrl, setDebugApiUrl] = useState('');
+  // ===================================
 
-  useEffect(() => {
-    if (!leagueId || !rosterId) {
+  const fetchRosterDetails = useCallback(async (currentLeagueId, currentRosterId) => {
+    if (!currentLeagueId || !currentRosterId) {
       setLoading(false);
-      setError("League ID and Roster ID are required to fetch data.");
+      setError("League ID and Roster ID are required.");
       return;
     }
 
-    const fetchRosterDetails = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        // Ensure your backend is running and accessible at this URL
-        const response = await fetch(`http://localhost:5000/api/league/${leagueId}/roster/${rosterId}`);
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ // Try to parse error, fallback if not JSON
-            message: `HTTP error! Status: ${response.status}`
-          }));
-          throw new Error(errorData.error || errorData.message || `HTTP error! Status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        setRosterData(data);
-      } catch (e) {
-        console.error("Failed to fetch roster details:", e);
-        setError(e.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+    setLoading(true);
+    setError(null);
+    try {
+      // Construct the endpoint path
+      const endpointPath = `/api/league/${currentLeagueId}/roster/${currentRosterId}`;
+      
+      // === FOR DEBUGGING MOBILE ISSUE ===
+      // Get the full URL from the apiService logic and store it for display
+      const fullApiUrl = (process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000') + endpointPath;
+      setDebugApiUrl(fullApiUrl);
+      // ===================================
 
-    fetchRosterDetails();
-  }, [leagueId, rosterId]); // Re-fetch if leagueId or rosterId changes
+      // Use the imported 'get' function from your apiService, which uses the same logic
+      const data = await get(endpointPath);
+      setRosterData(data);
+    } catch (e) {
+      console.error("Failed to fetch roster details:", e);
+      setError(e.message || "An unknown error occurred while fetching roster details.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRosterDetails(leagueId, rosterId);
+  }, [leagueId, rosterId, fetchRosterDetails]);
+
+
+  // --- Rendering Logic ---
 
   if (loading) {
-    return <div style={{ padding: '20px' }}>Loading roster details...</div>;
+    return (
+      <div style={{ padding: '20px', fontFamily: 'monospace' }}>
+        <p>Loading roster details...</p>
+        {/* Display the URL we are attempting to fetch */}
+        <p style={{ color: 'grey', fontSize: '12px' }}>Attempting to fetch from: {debugApiUrl}</p>
+      </div>
+    );
   }
 
+  // Display error and the URL that was attempted
   if (error) {
-    return <div style={{ padding: '20px', color: 'red' }}>Error loading roster: {error}</div>;
+    return (
+      <div style={{ padding: '20px', fontFamily: 'monospace' }}>
+        <p style={{ color: 'red' }}>Error loading roster: {error}</p>
+        <p style={{ color: 'grey', fontSize: '12px' }}>Failed URL: {debugApiUrl}</p>
+      </div>
+    );
   }
 
   if (!rosterData) {
     return <div style={{ padding: '20px' }}>No roster data found.</div>;
   }
 
-  // --- Render the roster data ---
-  // This structure matches the JSON response we designed for the backend
+  // Successful render
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+       {/* === FOR DEBUGGING MOBILE ISSUE === */}
+      <p style={{ background: '#f0f0f0', border: '1px solid #ccc', padding: '5px', fontSize: '12px', fontFamily: 'monospace' }}>
+        Debug Info: Fetched from {debugApiUrl}
+      </p>
+      {/* =================================== */}
+
       {rosterData.manager_display_name && (
         <h2>
           Manager: {rosterData.manager_display_name} (Roster ID: {rosterData.roster_id})
         </h2>
       )}
-      {rosterData.owner_id && <p style={{fontSize: '0.9em', color: '#555'}}>Owner ID: {rosterData.owner_id}</p>}
-
+      {/* ... rest of your successful render JSX ... */}
       <h4>Players ({rosterData.players ? rosterData.players.length : 0}):</h4>
       {rosterData.players && rosterData.players.length > 0 ? (
         <table style={{ borderCollapse: 'collapse', width: '100%', maxWidth: '800px' }}>
           <thead>
-            <tr style={{ backgroundColor: '#f0f0f0' }}>
+            {/* ... table headers ... */}
+             <tr style={{ backgroundColor: '#f0f0f0' }}>
               <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Player ID</th>
               <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Full Name</th>
               <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Position</th>
@@ -79,14 +106,14 @@ function RosterDisplay() {
           <tbody>
             {rosterData.players.map((player) => (
               <tr key={player.player_id}>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.player_id}</td>
+                 <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.player_id}</td>
                 <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.full_name || 'N/A'}</td>
                 <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.position || 'N/A'}</td>
                 <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.team || 'N/A'}</td>
                 <td style={{ border: '1px solid #ddd', padding: '8px' }}>
                   {rosterData.starters && rosterData.starters.includes(player.player_id) ? 
                     <strong>Starter</strong> : 
-                    'Bench' /* You might have other categories like Reserve, Taxi */
+                    'Bench'
                   }
                 </td>
               </tr>
@@ -96,7 +123,6 @@ function RosterDisplay() {
       ) : (
         <p>No players found on this roster.</p>
       )}
-       {/* You could also display starters, reserves, taxi separately if you enrich rosterData with that */}
     </div>
   );
 }
