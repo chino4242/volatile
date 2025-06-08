@@ -1,4 +1,4 @@
-// server.js - CANARY TEST v3
+// server.js - Test #2: Re-enabling the /api/hello route
 
 // Keep these error handlers at the top
 process.on('unhandledRejection', (reason, promise) => {
@@ -13,25 +13,33 @@ process.on('uncaughtException', (error) => {
 const express = require('express');
 const cors = require('cors');
 
-// All routes are commented out
+// Keep rosterRoutes commented out for now
 // const rosterRoutes = require('./routes/rosterRoutes'); 
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
+// Keep this commented out
 // app.use('/api', rosterRoutes);
 
+// vvvv RE-ENABLE THIS ROUTE vvvv
+app.get('/api/hello', (req, res) => {
+    res.json({ message: 'Welcome to the brains behind Volatile Creative - Main Server Speaking!' });
+});
+
+
+// Start the server
 const serverInstance = app.listen(PORT, () => {
-    // === THIS IS THE CANARY MESSAGE ===
-    console.log(`CANARY TEST v3: Server startup successful on port ${PORT}. If you see this, the deploy worked.`);
-    // ================================
+    console.log(`Server test with /api/hello: Running and listening on http://localhost:${PORT}`);
 });
 
 serverInstance.on('error', (error) => {
     if (error.syscall !== 'listen') { throw error; }
+    // ... (rest of your error handling)
     const bind = typeof PORT === 'string' ? 'Pipe ' + PORT : 'Port ' + PORT;
     switch (error.code) {
         case 'EACCES':
