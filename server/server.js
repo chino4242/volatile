@@ -21,7 +21,7 @@ app.use(cors()); // Enable CORS
 app.use(express.json()); // Parse JSON bodies
 
 
-app.use('/api', rosterRoutes);
+//app.use('/api', rosterRoutes);
 
 // Optional: Serve static assets from React build in production
 if (process.env.NODE_ENV === 'production') {
