@@ -1,4 +1,4 @@
-// server.js
+// server.js - CANARY TEST v3
 
 // Keep these error handlers at the top
 process.on('unhandledRejection', (reason, promise) => {
@@ -10,34 +10,28 @@ process.on('uncaughtException', (error) => {
     process.exit(1);
 });
 
-
 const express = require('express');
 const cors = require('cors');
 
-// vvvv KEEP THIS COMMENTED OUT vvvv
-const rosterRoutes = require('./routes/rosterRoutes'); 
+// All routes are commented out
+// const rosterRoutes = require('./routes/rosterRoutes'); 
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-//app.use('/api', rosterRoutes);
+// app.use('/api', rosterRoutes);
 
-// Start the server - THIS IS THE ONLY PART LEFT THAT USES THE 'app'
 const serverInstance = app.listen(PORT, () => {
-    console.log(`Minimal server test: Running and listening on http://localhost:${PORT}`);
-    console.log('Press Ctrl+C to stop the server.');
+    // === THIS IS THE CANARY MESSAGE ===
+    console.log(`CANARY TEST v3: Server startup successful on port ${PORT}. If you see this, the deploy worked.`);
+    // ================================
 });
 
-// Keep this error handler for the listen call
 serverInstance.on('error', (error) => {
-    // ... (your existing serverInstance.on('error', ...) code)
-    if (error.syscall !== 'listen') {
-        throw error;
-    }
+    if (error.syscall !== 'listen') { throw error; }
     const bind = typeof PORT === 'string' ? 'Pipe ' + PORT : 'Port ' + PORT;
     switch (error.code) {
         case 'EACCES':
