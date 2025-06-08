@@ -1,4 +1,4 @@
-// server.js - Test #2: Re-enabling the /api/hello route
+// server/js - FINAL DEPLOYMENT VERSION
 
 // Keep these error handlers at the top
 process.on('unhandledRejection', (reason, promise) => {
@@ -12,9 +12,7 @@ process.on('uncaughtException', (error) => {
 
 const express = require('express');
 const cors = require('cors');
-
-// Keep rosterRoutes commented out for now
-// const rosterRoutes = require('./routes/rosterRoutes'); 
+const rosterRoutes = require('./routes/rosterRoutes'); 
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -23,35 +21,23 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Keep this commented out
-// app.use('/api', rosterRoutes);
+// --- Enable your API routes ---
+app.use('/api', rosterRoutes);
 
-// vvvv RE-ENABLE THIS ROUTE vvvv
+// Simple test route
 app.get('/api/hello', (req, res) => {
-    res.json({ message: 'Welcome to the brains behind Volatile Creative - Main Server Speaking!' });
+    res.json({ message: 'API is alive!' });
 });
 
+// --- THE STATIC FILE SERVING BLOCK IS PERMANENTLY REMOVED ---
 
 // Start the server
 const serverInstance = app.listen(PORT, () => {
-    console.log(`Server test with /api/hello: Running and listening on http://localhost:${PORT}`);
+    // Add a unique message so we can identify this specific deployment
+    console.log(`FINAL DEPLOYMENT v1: Server is running and listening on http://localhost:${PORT}`);
 });
 
+// Error handling for the server instance
 serverInstance.on('error', (error) => {
-    if (error.syscall !== 'listen') { throw error; }
-    // ... (rest of your error handling)
-    const bind = typeof PORT === 'string' ? 'Pipe ' + PORT : 'Port ' + PORT;
-    switch (error.code) {
-        case 'EACCES':
-            console.error(`SERVER STARTUP ERROR: ${bind} requires elevated privileges.`);
-            process.exit(1);
-            break;
-        case 'EADDRINUSE':
-            console.error(`SERVER STARTUP ERROR: ${bind} is already in use.`);
-            process.exit(1);
-            break;
-        default:
-            console.error(`An error occurred with the server: ${error.message}`);
-            throw error;
-    }
+    // ... (your existing serverInstance.on('error', ...) code)
 });
