@@ -20,8 +20,8 @@ const PORT = process.env.PORT || 5000;
 app.use(cors()); // Enable CORS
 app.use(express.json()); // Parse JSON bodies
 
-
-app.use('/api', rosterRoutes);
+//Temporarily commenting this out
+//app.use('/api', rosterRoutes);
 
 app.get('/api/hello', (req, res) => {
     res.json({ message: 'Welcome to the brains behind Volatile Creative - Main Server Speaking!' });
