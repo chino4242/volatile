@@ -121,7 +121,7 @@ async function main() {
             }
         } else {
             console.error(`An unexpected error occurred in main execution: ${error.message}`);
-            console.error(error.stack); // Print stack for unexpected errors
+            console.error(error.stack); 
         }
     }
 }

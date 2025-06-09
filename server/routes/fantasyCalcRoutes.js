@@ -27,5 +27,4 @@ router.get('/values/fantasycalc', async (req, res) => {
     }
 });
 
-// This line is essential. It exports the router so server.js can use it.
 module.exports = router;

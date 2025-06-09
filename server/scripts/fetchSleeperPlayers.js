@@ -54,5 +54,4 @@ async function fetchAndSavePlayers() {
             }
 }
 
-// Execute the function
 fetchAndSavePlayers();

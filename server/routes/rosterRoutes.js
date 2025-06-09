@@ -91,5 +91,4 @@ router.get('/league/:leagueId/roster/:rosterId', async (req, res) => {
     }
 });
 
-// Don't forget to export the router
 module.exports = router;
