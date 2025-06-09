@@ -12,7 +12,8 @@ process.on('uncaughtException', (error) => {
 
 const express = require('express');
 const cors = require('cors');
-const rosterRoutes = require('./routes/rosterRoutes'); 
+const rosterRoutes = require('./routes/rosterRoutes');
+const freeAgentRoutes = require('./routes/freeAgentRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -23,6 +24,7 @@ app.use(express.json());
 
 // --- Enable your API routes ---
 app.use('/api', rosterRoutes);
+app.use('/api', freeAgentRoutes);
 
 // Simple test route
 app.get('/api/hello', (req, res) => {
