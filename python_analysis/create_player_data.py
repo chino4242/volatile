@@ -2,31 +2,30 @@
 import json
 import pandas as pd
 import os
-import sys
-import services # Assuming services.py is in the same directory
+import services
 
 # --- Configuration ---
-SLEEPER_PLAYERS_JSON_PATH = os.path.join(os.path.dirname(__file__), '..', 'server', 'data', 'nfl_players_data.json')
-ANALYSIS_DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
-OUTPUT_DATA_DIR = os.path.join(os.path.dirname(__file__), 'data_output')
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+SLEEPER_PLAYERS_JSON_PATH = os.path.join(CURRENT_DIR, '..', 'server', 'data', 'nfl_players_data.json')
+ANALYSIS_DATA_DIR = os.path.join(CURRENT_DIR, 'data')
+OUTPUT_DATA_DIR = os.path.join(CURRENT_DIR, 'data_output')
 ENRICHED_PLAYERS_OUTPUT_PATH = os.path.join(OUTPUT_DATA_DIR, 'enriched_players_master.json')
 
 if not os.path.exists(OUTPUT_DATA_DIR):
     os.makedirs(OUTPUT_DATA_DIR)
 
-def load_and_prep_excel(file_path, original_name_col):
-    """Loads, cleanses, and de-duplicates an Excel file."""
+def load_and_prep_excel(file_path, column_rename_map, original_name_col='Player'):
+    """Generic function to load, rename, cleanse, and de-duplicate an Excel file."""
     try:
         print(f"Loading data from: {file_path}")
         df = pd.read_excel(file_path, engine='openpyxl')
-        # Rename the original name column for consistency
         df.rename(columns={original_name_col: 'player_name_original'}, inplace=True)
-        # Cleanse names to create the merge key
         df = services.cleanse_names(df, 'player_name_original')
         
-        # --- NEW: De-duplicate the analysis file BEFORE merging ---
-        # This prevents issues where one player has multiple ranking entries.
-        # We keep the first entry found for each unique cleansed name.
+        # Standardize column names to be code-friendly
+        df.rename(columns=column_rename_map, inplace=True)
+        
+        # De-duplicate the analysis file BEFORE merging to ensure one record per player
         original_rows = len(df)
         df.drop_duplicates(subset=['player_cleansed_name'], keep='first', inplace=True)
         if len(df) < original_rows:
@@ -39,7 +38,6 @@ def load_and_prep_excel(file_path, original_name_col):
         return pd.DataFrame()
 
 def load_sleeper_player_data(file_path):
-    """Loads and prepares the base Sleeper player data."""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -55,7 +53,7 @@ def load_sleeper_player_data(file_path):
         print(f"Successfully loaded and prepped {len(df_sleeper_players)} players from Sleeper.")
         return df_sleeper_players
     except Exception as e:
-        print(f"Halting process: Error loading Sleeper data from {SLEEPER_PLAYERS_JSON_PATH}: {e}")
+        print(f"Halting process: Error loading Sleeper data: {e}")
         return pd.DataFrame()
 
 def main():
@@ -65,35 +63,44 @@ def main():
     if df_sleeper_players.empty:
         return
 
+    # Define standardized column name mappings for each file
+    sf_rename_map = {'Overall': 'overall_rank', 'Pos. Rank': 'positional_rank', 'Tier': 'tier'}
     sf_rankings_path = os.path.join(ANALYSIS_DATA_DIR, 'superflex', 'SuperflexRankings_June25.xlsx')
-    df_superflex_rankings = load_and_prep_excel(sf_rankings_path, 'Player')
+    df_superflex = load_and_prep_excel(sf_rankings_path, sf_rename_map, 'Player')
 
+    lrqb_rename_map = {'ZAP Score': 'zap_score', 'Category': 'category', 'Comparables': 'comparables', 'Draft Capital Delta': 'draft_capital_delta', 'Notes': 'notes_lrqb'}
     lrqb_path = os.path.join(ANALYSIS_DATA_DIR, 'common', 'LRQB_Postdraft_Rookies.xlsx')
-    df_lrqb_rookies = load_and_prep_excel(lrqb_path, 'Player')
+    df_lrqb = load_and_prep_excel(lrqb_path, lrqb_rename_map, 'Player')
 
-    # Merge DataFrames using the cleansed name as the key
+    rsp_rename_map = {
+        'RSP Pos. Ranking': 'rsp_pos_rank', 'RSP 2023-2025 Rank': 'rsp_2023_2025_rank', 'RP 2021-2025 Rank': 'rp_2021_2025_rank',
+        'Comparison Spectrum': 'comparison_spectrum', 'Depth of Talent Score': 'depth_of_talent_score',
+        'Depth of Talent Description': 'depth_of_talent_desc', 'RSP Notes': 'notes_rsp'
+    }
+    rsp_path = os.path.join(ANALYSIS_DATA_DIR, 'common', 'RSP_Rookies.xlsx')
+    df_rsp = load_and_prep_excel(rsp_path, rsp_rename_map, 'Player')
+
+    # Merge DataFrames one by one
     df_enriched = df_sleeper_players
-    
-    if not df_superflex_rankings.empty:
-        print("\nMerging Superflex Rankings...")
-        # Select only the columns you need from the rankings file to avoid conflicts
-        cols_to_merge = [col for col in ['player_cleansed_name', 'Overall', 'Pos. Rank', 'Tier'] if col in df_superflex_rankings.columns]
-        df_enriched = pd.merge(df_enriched, df_superflex_rankings[cols_to_merge], on='player_cleansed_name', how='left')
-        # --- NEW: Verify the merge by checking for non-null values in a merged column ---
-        successful_merges = df_enriched['Overall'].notna().sum()
-        print(f"  - Successfully merged 'Overall' rank for {successful_merges} players.")
+    analysis_dfs = {
+        'Superflex': (df_superflex, list(sf_rename_map.values())),
+        'LRQB': (df_lrqb, list(lrqb_rename_map.values())),
+        'RSP': (df_rsp, list(rsp_rename_map.values()))
+    }
 
-    if not df_lrqb_rookies.empty:
-        print("Merging LRQB Rookie Rankings...")
-        cols_to_merge = [col for col in ['player_cleansed_name', 'ZAP Score', 'Category', 'Comparables', 'Draft Capital Delta', 'Notes'] if col in df_lrqb_rookies.columns]
-        df_enriched = pd.merge(df_enriched, df_lrqb_rookies[cols_to_merge], on='player_cleansed_name', how='left', suffixes=('', '_lrqb'))
-        successful_merges_lrqb = df_enriched['ZAP Score'].notna().sum()
-        print(f"  - Successfully merged 'ZAP Score' for {successful_merges_lrqb} players.")
+    for name, (df_analysis, analysis_cols) in analysis_dfs.items():
+        if not df_analysis.empty:
+            print(f"Merging {name} data...")
+            cols_to_merge = ['player_cleansed_name'] + [col for col in analysis_cols if col in df_analysis.columns]
+            df_enriched = pd.merge(df_enriched, df_analysis[cols_to_merge], on='player_cleansed_name', how='left', suffixes=('', f'_{name.lower()}'))
+            # Verify the merge
+            merged_col_check = analysis_cols[0]
+            successful_merges = df_enriched[merged_col_check].notna().sum()
+            print(f"  - Successfully merged '{merged_col_check}' for {successful_merges} players.")
 
     # Save the final consolidated data
     df_final = df_enriched.where(pd.notna(df_enriched), None)
     print(f"\nTotal players in master dataset: {len(df_final)}")
-    print(f"Saving enriched master data to: {ENRICHED_PLAYERS_OUTPUT_PATH}")
     records = df_final.to_dict(orient='records')
     with open(ENRICHED_PLAYERS_OUTPUT_PATH, 'w', encoding='utf-8') as f:
         json.dump(records, f, indent=4)
