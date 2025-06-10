@@ -78,9 +78,9 @@ function RosterDisplay() {
         return {
           ...player, // Basic info from Sleeper
           age: player.age || (analysis ? analysis.age : 'N/A'),
-          overall_rank: analysis ? (analysis.Overall || analysis.Rk || 'N/A') : 'N/A',
+          overall_rank: analysis?.overall_rank || 'N/A',
           positional_rank: analysis ? (analysis['Positional Rank'] || 'N/A') : 'N/A',
-          tier: analysis ? (analysis.Tier || 'N/A') : 'N/A',
+          tier: analysis?.tier || 'N/A',
           trade_value: calcValueData ? calcValueData.value : 0,
         };
       });
