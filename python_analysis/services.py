@@ -1,6 +1,7 @@
 import requests
 import pandas as pd
 import os
+import re
 
 
 nnf_team_ids = {
@@ -23,8 +24,33 @@ columns = ['full_name', 'Team', 'position', 'Age', 'Value']
 
 
 def cleanse_names(df, column):
-    df['player_cleansed_name'] = df[column].str.replace(r'[^\w\s]+', '')
+    """
+    Cleanses player names in a DataFrame column to match the frontend JavaScript logic.
+    - Converts to lowercase.
+    - Removes all characters except letters, numbers, whitespace, and apostrophes.
+    - Normalizes multiple whitespace characters into a single space.
+    - Trims leading/trailing whitespace.
+    """
+    # Ensure the column is treated as a string, filling any non-string data with empty strings
+    cleansed_series = df[column].astype(str).fillna('')
+    
+    # 1. Convert to lowercase
+    cleansed_series = cleansed_series.str.lower()
+    
+    # 2. Remove special characters (keeping apostrophes)
+    # The regex [^\w\s'] matches any character that is NOT a word character, 
+    # whitespace, or an apostrophe. We replace it with nothing.
+    cleansed_series = cleansed_series.str.replace(r'[^\w\s\']', '', regex=True)
+    
+    # 3. Normalize multiple whitespace characters into a single space
+    cleansed_series = cleansed_series.str.replace(r'\s+', ' ', regex=True)
+    
+    # 4. Trim leading/trailing whitespace from the result
+    cleansed_series = cleansed_series.str.strip()
+    
+    df['player_cleansed_name'] = cleansed_series
     return df
+
 
 def get_league_rosters(league_id=197269, season=2024, scoring_period=18):
     url = 'https://www.fleaflicker.com/api/FetchLeagueRosters'

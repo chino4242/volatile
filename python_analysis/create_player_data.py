@@ -38,6 +38,8 @@ def load_and_prep_sleeper_data(filepath):
         # Ensure sleeper_player_id is a string for consistent merging
         df['sleeper_player_id'] = df['player_id'].astype(str)
         print(f"Successfully loaded and prepped {len(df)} players from Sleeper.")
+        print("---Sleeper Cleansed Names ---")
+        print(df[['full_name', 'player_cleansed_name']].head())
         return df
     except Exception as e:
         print(f"ERROR loading Sleeper data: {e}")
@@ -50,6 +52,8 @@ def load_and_prep_excel_data(filepath, player_name_column):
         df = pd.read_excel(filepath)
         df['player_cleansed_name'] = df[player_name_column].apply(cleanse_name)
         print(f"Successfully loaded {len(df)} rows from {os.path.basename(filepath)}.")
+        print("\n--- Excel Rankings Cleansed Names ---")
+        print(df[['Player', 'player_cleansed_name']].head())
         return df
     except Exception as e:
         print(f"ERROR loading Excel file {os.path.basename(filepath)}: {e}")
@@ -87,7 +91,7 @@ def main():
         sf_columns_to_merge = [
             'player_cleansed_name', 
             'Overall', 
-            'Pos. Rank', 
+            'Positional Rank', 
             'Tier'
         ]
         
@@ -103,7 +107,8 @@ def main():
                 master_df, 
                 df_superflex_ranks[sf_columns_to_merge], 
                 on='player_cleansed_name', 
-                how='left' # 'left' merge keeps all players from the base Sleeper list
+                how='left', # 'left' merge keeps all players from the base Sleeper list
+                indicator=True
             )
              print("Merged Superflex Rankings.")
 

@@ -1,4 +1,4 @@
-// server/js - FINAL DEPLOYMENT VERSION
+// server/server.js
 
 // Keep these error handlers at the top
 process.on('unhandledRejection', (reason, promise) => {
@@ -12,6 +12,8 @@ process.on('uncaughtException', (error) => {
 
 const express = require('express');
 const cors = require('cors');
+
+// --- 1. Import all your route files with their generic names ---
 const rosterRoutes = require('./routes/rosterRoutes');
 const freeAgentRoutes = require('./routes/freeAgentRoutes');
 const fantasyCalcRoutes = require('./routes/fantasyCalcRoutes');
@@ -20,28 +22,42 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+app.use(cors()); // Enable CORS
+app.use(express.json()); // Parse JSON bodies
 
-// --- Enable your API routes ---
+// --- 2. Use all imported routes under the single /api prefix ---
 app.use('/api', rosterRoutes);
 app.use('/api', freeAgentRoutes);
-app.use('/api', fantasyCalcRoutes);
+app.use('/api', fantasyCalcRoutes); 
 
 // Simple test route
 app.get('/api/hello', (req, res) => {
-    res.json({ message: 'API is alive!' });
+    res.json({ message: 'Welcome to the brains behind Volatile Creative - API Speaking!' });
 });
-
-// --- THE STATIC FILE SERVING BLOCK IS PERMANENTLY REMOVED ---
 
 // Start the server
 const serverInstance = app.listen(PORT, () => {
-    // Add a unique message so we can identify this specific deployment
-    console.log(`FINAL DEPLOYMENT v1: Server is running and listening on http://localhost:${PORT}`);
+    console.log(`Server is running and listening on http://localhost:${PORT}`);
+    console.log('Press Ctrl+C to stop the server.');
 });
 
 // Error handling for the server instance
 serverInstance.on('error', (error) => {
-    // ... (your existing serverInstance.on('error', ...) code)
+    if (error.syscall !== 'listen') {
+        throw error;
+    }
+    const bind = typeof PORT === 'string' ? 'Pipe ' + PORT : 'Port ' + PORT;
+    switch (error.code) {
+        case 'EACCES':
+            console.error(`SERVER STARTUP ERROR: ${bind} requires elevated privileges.`);
+            process.exit(1);
+            break;
+        case 'EADDRINUSE':
+            console.error(`SERVER STARTUP ERROR: ${bind} is already in use.`);
+            process.exit(1);
+            break;
+        default:
+            console.error(`An error occurred with the server: ${error.message}`);
+            throw error;
+    }
 });
