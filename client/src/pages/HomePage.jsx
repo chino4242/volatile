@@ -23,7 +23,7 @@ function HomePage() {
     setError(null);
     try {
       // This calls the /api/league/:leagueId/managers endpoint
-      const data = await get(`/api/league/${currentLeagueId}/managers`);
+      const data = await get(`/api/sleeper/league/${currentLeagueId}/managers`);
 
       // <<< DEBUG LOG: Inspect the data received from the API >>>
       console.log("Data received from /api/league/.../managers:", data);

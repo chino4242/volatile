@@ -50,7 +50,7 @@ function FreeAgentsPage() {
     try {
       console.log("--- Fetching free agents list and FantasyCalc values... ---");
       const [freeAgentsData, fantasyCalcValues] = await Promise.all([
-        get(`/api/league/${currentLeagueId}/free-agents`),
+        get(`/api/sleeper/league/${currentLeagueId}/free-agents`),
         get(`/api/values/fantasycalc?isDynasty=true&numQbs=2&ppr=0.5`)
       ]);
 

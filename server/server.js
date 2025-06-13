@@ -13,11 +13,12 @@ process.on('uncaughtException', (error) => {
 const express = require('express');
 const cors = require('cors');
 
-// --- 1. Import all your route files with their generic names ---
-const rosterRoutes = require('./routes/rosterRoutes');
-const freeAgentRoutes = require('./routes/freeAgentRoutes');
+// --- 1. Import all your route files ---
+const sleeperRosterRoutes = require('./routes/sleeperRosterRoutes');
+const sleeperFreeAgentRoutes = require('./routes/sleeperFreeAgentRoutes');
+const sleeperLeagueRoutes = require('./routes/sleeperLeagueRoutes');
 const fantasyCalcRoutes = require('./routes/fantasyCalcRoutes');
-const leagueRoutes = require('./routes/leagueRoutes.js');
+const fleaflickerRoutes = require('./routes/fleaflickerRosterRoutes'); // <<< ADD THIS IMPORT
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,11 +27,12 @@ const PORT = process.env.PORT || 5000;
 app.use(cors()); // Enable CORS
 app.use(express.json()); // Parse JSON bodies
 
-// --- 2. Use all imported routes under the single /api prefix ---
-app.use('/api', rosterRoutes);
-app.use('/api', freeAgentRoutes);
+// --- 2. Use all imported routes with platform-specific prefixes ---
+app.use('/api/sleeper', sleeperRosterRoutes);
+app.use('/api/sleeper', sleeperFreeAgentRoutes);
+app.use('/api/sleeper', sleeperLeagueRoutes);
+app.use('/api/fleaflicker', fleaflickerRoutes); // <<< ADD THIS LINE TO USE THE NEW ROUTES
 app.use('/api', fantasyCalcRoutes); 
-app.use('/api', leagueRoutes);
 
 // Simple test route
 app.get('/api/hello', (req, res) => {
