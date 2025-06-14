@@ -70,8 +70,9 @@ function FreeAgentsPage() {
         console.log("Python API analysis response:", analysisPlayers);
 
         analysisPlayers.forEach(player => {
-          if (player?.sleeper_player_id && !player.error) {
-            analysisDataMap.set(String(player.sleeper_player_id), player);
+          // --- THIS IS THE FIX: Use the correct key 'sleeper_id' ---
+          if (player?.sleeper_id && !player.error) {
+            analysisDataMap.set(String(player.sleeper_id), player);
           }
         });
       }
@@ -195,7 +196,7 @@ function FreeAgentsPage() {
           </tbody>
         </table>
       </div>
-       {modalContent && (
+        {modalContent && (
           <Modal 
               content={
                   <>

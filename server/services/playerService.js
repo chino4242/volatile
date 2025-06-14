@@ -1,70 +1,121 @@
-console.log("--- playerService.js: Top of file execution started ---"); // <<< ADD THIS
-const fs = require('fs').promises;
+// server/services/playerService.js
+const fs = require('fs');
 const path = require('path');
-console.log("--- playerService.js: fs and path modules required ---"); // <<< ADD THIS
 
-const PLAYER_DATA_FILE = "nfl_players_data.json"; // Or a more central path like ../data/
-const PLAYER_DATA_PATH = path.join(__dirname, '..', 'data', PLAYER_DATA_FILE); // Example: if data is in server/data/
-console.log(`--- playerService.js: PLAYER_DATA_PATH set to: ${PLAYER_DATA_PATH} ---`); // <<< ADD THIS
+// --- Point to the correct, enriched data file ---
+const PLAYER_DATA_FILE = "enriched_players_master.json";
+const PLAYER_DATA_PATH = path.join(__dirname, '..', 'data', PLAYER_DATA_FILE);
 
-async function loadAllPlayersData() {
-    console.log(`Attempting to load NFL players data from ${PLAYER_DATA_PATH}...`);
+// This will hold our player data in memory for the lifetime of the server.
+const playerMap = new Map();
+
+/**
+ * A self-invoking function to load player data synchronously on server startup.
+ * This is a robust pattern for loading essential configuration or data.
+ */
+(function loadDataOnStartup() {
+    console.log("--- PLAYER SERVICE: Initializing and loading master player data on startup... ---");
     try {
-        const fileContent = await fs.readFile(PLAYER_DATA_PATH, 'utf8');
-        const data = JSON.parse(fileContent);
-        console.log(`Successfully loaded NFL players data from ${PLAYER_DATA_PATH}`);
-        return data;
+        if (!fs.existsSync(PLAYER_DATA_PATH)) {
+            throw new Error(`File not found at path: ${PLAYER_DATA_PATH}`);
+        }
+
+        const fileContent = fs.readFileSync(PLAYER_DATA_PATH, 'utf8');
+        console.log(`--- PLAYER SERVICE: Read file content, length: ${fileContent.length} characters.`);
+
+        if (fileContent.trim() === '') {
+            throw new Error("File is empty.");
+        }
+
+        const playersArray = JSON.parse(fileContent);
+
+        if (!Array.isArray(playersArray)) {
+            throw new Error("Data is not a valid JSON array.");
+        }
+        console.log(`--- PLAYER SERVICE: Successfully parsed JSON. Found ${playersArray.length} items in array.`);
+
+        // Convert the array to a Map for O(1) lookups by sleeper_id
+        for (const player of playersArray) {
+            if (player && player.sleeper_id) {
+                playerMap.set(String(player.sleeper_id), player);
+            }
+        }
+
+        if (playerMap.size === 0) {
+             throw new Error("Data loaded, but no valid players with sleeper_id found to map.");
+        }
+
+        console.log(`--- PLAYER SERVICE: Successfully loaded and cached ${playerMap.size} players. Service is ready.`);
+
     } catch (error) {
-        console.error(`Error in loadAllPlayersData for path ${PLAYER_DATA_PATH}:`, error.message);
-        // In an API context, we should throw the error to be caught by the route handler
-        throw new Error(`Failed to load player master data: ${error.message}`);
+        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        console.error("!!! FATAL ERROR IN PLAYER SERVICE !!!");
+        console.error("!!! The server cannot start without the master player data. !!!");
+        console.error(`!!! Error: ${error.message}`);
+        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        // Exit the process with an error code to prevent the server from running in a broken state.
+        process.exit(1);
     }
+})();
+
+/**
+ * Returns the pre-loaded map of all player data.
+ * @returns {Map<string, object>} The map of all player data.
+ */
+function getAllPlayers() {
+    return playerMap;
 }
 
-function createManagerRosterList(managerPlayerIds, allPlayersData) {
+/**
+ * Builds a list of detailed player information for a given roster.
+ * @param {string[]} managerPlayerIds - An array of player IDs on a manager's roster.
+ * @param {Map<string, object>} allPlayersMap - The Map of all player data.
+ * @returns {object[]} An array of player detail objects for the roster.
+ */
+function createManagerRosterList(managerPlayerIds, allPlayersMap) {
     const rosterDetailsList = [];
-    if (!allPlayersData || typeof allPlayersData !== 'object') {
-        console.error("allPlayersData is not a valid object in createManagerRosterList");
-        return rosterDetailsList; // or throw error
+    if (!(allPlayersMap instanceof Map)) {
+        console.error("Error: allPlayersMap is not a valid Map in createManagerRosterList");
+        return []; // Return empty array on error
     }
     if (!managerPlayerIds || managerPlayerIds.length === 0) {
-        return rosterDetailsList;
+        return [];
     }
 
     for (const playerIdOnRoster of managerPlayerIds) {
         const playerIdStr = String(playerIdOnRoster);
-        const playerInfo = allPlayersData[playerIdStr];
+        const playerInfo = allPlayersMap.get(playerIdStr);
 
         if (playerInfo) {
             rosterDetailsList.push({
                 player_id: playerIdStr,
                 full_name: playerInfo.full_name || 'N/A',
                 position: playerInfo.position || 'N/A',
-                team: playerInfo.team || 'FA'
+                team: playerInfo.team || 'FA',
+                fantasy_calc_value: playerInfo.fantasy_calc_value || null
             });
         } else {
+            // Handle DEF or other non-player entities
             if (playerIdStr.length <= 3 && /^[A-Z]+$/.test(playerIdStr)) {
                 rosterDetailsList.push({
                     player_id: playerIdStr,
-                    full_name: `${playerIdStr} Defense`, // Your script produces this
+                    full_name: `${playerIdStr} Defense`,
                     position: 'DEF',
                     team: playerIdStr
                 });
             } else {
-                rosterDetailsList.push({
-                    player_id: playerIdStr,
-                    full_name: 'Unknown Player/Entity',
-                    position: 'N/A',
-                    team: 'N/A'
-                });
+                // To keep the logs clean, we won't log every unknown player unless needed for deep debugging.
             }
         }
     }
     return rosterDetailsList;
 }
-console.log("--- playerService.js: Functions defined, about to assign module.exports ---"); // <<< ADD THIS
+
+
+// Export the functions that will be used by other parts of the application.
 module.exports = {
-    loadAllPlayersData,
-    createManagerRosterList
+    getAllPlayers,
+    createManagerRosterList,
+    // Add an alias for backward compatibility with other services that might still use the old function name.
+    loadAllPlayersData: getAllPlayers,
 };
-console.log("--- playerService.js: module.exports has been assigned ---"); // <<< ADD THIS
