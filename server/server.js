@@ -23,17 +23,25 @@ const fleaflickerRoutes = require('./routes/fleaflickerRosterRoutes'); // <<< AD
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Add detailed request logging
+// Update the request logging middleware
 app.use((req, res, next) => {
-  console.log({
+  const requestLog = {
     timestamp: new Date().toISOString(),
     method: req.method,
     url: req.url,
     path: req.path,
+    baseUrl: req.baseUrl,
+    originalUrl: req.originalUrl,
     params: req.params,
     query: req.query,
-    headers: req.headers
-  });
+    headers: {
+      origin: req.headers.origin,
+      host: req.headers.host,
+      'user-agent': req.headers['user-agent']
+    }
+  };
+  
+  console.log('Incoming Request:', JSON.stringify(requestLog, null, 2));
   next();
 });
 
@@ -71,8 +79,43 @@ app.get('/api/test/managers', (req, res) => {
   res.json({ status: 'Managers endpoint reachable' });
 });
 
-// Update the 404 handler with more detail
+// Add this before your other routes
+app.get('/api/debug/routes', (req, res) => {
+  const routes = app._router.stack
+    .filter(r => r.route || (r.name === 'router' && r.handle.stack))
+    .map(r => {
+      if (r.route) {
+        return { path: r.route.path, method: Object.keys(r.route.methods)[0] };
+      }
+      return {
+        name: r.name,
+        regexp: r.regexp.toString(),
+        path: r.handle.stack
+          .filter(s => s.route)
+          .map(s => s.route.path)
+      };
+    });
+    
+  res.json({ routes });
+});
+
+// Update the 404 handler to show more routing information
 app.use((req, res) => {
+  const routes = app._router.stack
+    .filter(r => r.route || (r.name === 'router' && r.handle.stack))
+    .map(r => {
+      if (r.route) {
+        return { path: r.route.path, method: Object.keys(r.route.methods)[0] };
+      }
+      return {
+        name: r.name,
+        regexp: r.regexp.toString(),
+        path: r.handle.stack
+          .filter(s => s.route)
+          .map(s => s.route.path)
+      };
+    });
+
   const error = {
     status: 404,
     message: 'Route not found',
@@ -80,17 +123,14 @@ app.use((req, res) => {
       method: req.method,
       url: req.url,
       path: req.path,
-      params: req.params,
+      baseUrl: req.baseUrl,
+      originalUrl: req.originalUrl,
+      params: req.params
     },
-    availableRoutes: app._router.stack
-      .filter(r => r.route)
-      .map(r => ({ 
-        path: r.route.path, 
-        method: Object.keys(r.route.methods)[0]
-      }))
+    registeredRoutes: routes
   };
   
-  console.log('404 Error Details:', error);
+  console.log('404 Error Details:', JSON.stringify(error, null, 2));
   res.status(404).json(error);
 });
 
