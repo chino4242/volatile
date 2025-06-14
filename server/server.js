@@ -23,8 +23,19 @@ const fleaflickerRoutes = require('./routes/fleaflickerRosterRoutes'); // <<< AD
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors()); // Enable CORS
+// Update CORS configuration
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',
+    'https://volatile-creative.onrender.com',
+    'https://pr-*.volatile-creative.onrender.com'
+  ],
+  methods: ['GET', 'POST'],
+  credentials: true,
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions)); // Enable CORS
 app.use(express.json()); // Parse JSON bodies
 
 // --- 2. Use all imported routes with platform-specific prefixes ---
@@ -34,6 +45,12 @@ app.use('/api/sleeper', sleeperLeagueRoutes);
 app.use('/api/fleaflicker', fleaflickerRoutes); // <<< ADD THIS LINE TO USE THE NEW ROUTES
 app.use('/api', fantasyCalcRoutes); 
 
+// Add request logging middleware after CORS
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 // Simple test route
 app.get('/api/hello', (req, res) => {
     res.json({ message: 'Welcome to the brains behind Volatile Creative - API Speaking!' });
@@ -42,6 +59,20 @@ app.get('/api/hello', (req, res) => {
 // Add this near your other routes
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Add before starting the server
+app.use((err, req, res, next) => {
+  console.error('Global error handler:', err);
+  res.status(err.status || 500).json({
+    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
+  });
+});
+
+// Add a 404 handler for unmatched routes
+app.use((req, res) => {
+  console.log(`404 - Route not found: ${req.method} ${req.url}`);
+  res.status(404).json({ error: 'Route not found' });
 });
 
 // Start the server
