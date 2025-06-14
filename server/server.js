@@ -1,6 +1,6 @@
 // server/server.js
 
-// Keep these error handlers at the top. Empty commit
+// Keep these error handlers at the top
 process.on('unhandledRejection', (reason, promise) => {
     console.error('SERVER CRITICAL ERROR: Unhandled Rejection at:', promise, 'reason:', reason);
     process.exit(1);
@@ -57,15 +57,13 @@ const corsOptions = {
 app.use(cors(corsOptions)); // Enable CORS
 app.use(express.json()); // Parse JSON bodies
 
-// --- 2. Use all imported routes with platform-specific prefixes ---
-// =================================================================
-// --- THIS IS THE FIX ---
-// Combine all sleeper-related routers into a single `app.use` call.
-// This tells Express to try each router in order for any request
-// that matches the '/api/sleeper' prefix.
-app.use('/api/sleeper', [sleeperRosterRoutes, sleeperFreeAgentRoutes, sleeperLeagueRoutes]);
-// =================================================================
+// --- Root route to handle health checks from Render ---
+app.get('/', (req, res) => {
+    res.status(200).json({ status: 'ok', message: 'API is healthy and ready to serve requests.' });
+});
 
+// --- 2. Use all imported routes with platform-specific prefixes ---
+app.use('/api/sleeper', [sleeperRosterRoutes, sleeperFreeAgentRoutes, sleeperLeagueRoutes]);
 app.use('/api/fleaflicker', fleaflickerRoutes); 
 app.use('/api', fantasyCalcRoutes); 
 
@@ -139,20 +137,20 @@ app.use((req, res) => {
   res.status(404).json(error);
 });
 
-// Update the error handler with more detail
+// Update the final error handler to be more robust
 app.use((err, req, res, next) => {
   const errorResponse = {
-    status: err.status || 500,
+    status: err?.status || 500,
     message: process.env.NODE_ENV === 'production' 
-      ? 'Internal server error' 
-      : err.message,
+      ? 'An internal server error occurred.' 
+      : err?.message || 'An unknown error occurred.',
     path: req.path,
     method: req.method
   };
   
   console.error('Error Details:', {
     ...errorResponse,
-    stack: err.stack
+    stack: err?.stack || 'No stack trace available for this error.'
   });
   
   res.status(errorResponse.status).json(errorResponse);
