@@ -7,25 +7,28 @@ import RosterDisplay from './pages/RosterDisplay';
 import FreeAgentsPage from './pages/FreeAgentsPage';
 import FleaflickerFreeAgentsPage from './pages/FleaflickerFreeAgentsPage';
 import FleaflickerHomePage from './pages/FleaflickerHomePage';
-import FleaflickerRosterDisplay from './pages/FleaflickerRosterDisplay'; // Import the new component
+import FleaflickerRosterDisplay from './pages/FleaflickerRosterDisplay';
+import { styles } from './styles'; // Import the new shared styles
 
 // A simple landing page component to choose the platform
 function LandingPage() {
   return (
-    <div style={{ padding: '40px', fontFamily: 'Arial, sans-serif', textAlign: 'center' }}>
-      <h1>Fantasy Football League Analyzer</h1>
-      <p>Choose your platform and enter a league ID to get started.</p>
-      <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'center', gap: '40px' }}>
-        <div style={{ padding: '20px', border: '1px solid #ddd', borderRadius: '8px' }}>
-          <h2>Sleeper</h2>
-          <p>Example League ID: 1200992049558454272</p>
+    <div style={styles.pageContainer}>
+        <div style={{textAlign: 'center', margin: '40px 0'}}>
+            <h1 style={styles.h1}>Fantasy Football League Analyzer</h1>
+            <p style={styles.p}>Choose your platform and enter a league ID to get started.</p>
+        </div>
+      <div style={{ marginTop: '30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '40px' }}>
+        <div style={styles.landingCard}>
+          <h2 style={styles.h2}>Sleeper</h2>
+          <p style={styles.p}>Example League ID: 1200992049558454272</p>
           <Link to="/league/1200992049558454272" style={styles.button}>
             Go to Sleeper Example
           </Link>
         </div>
-        <div style={{ padding: '20px', border: '1px solid #ddd', borderRadius: '8px' }}>
-          <h2>Fleaflicker</h2>
-          <p>Example League ID: 197269</p>
+        <div style={styles.landingCard}>
+          <h2 style={styles.h2}>Fleaflicker</h2>
+          <p style={styles.p}>Example League ID: 197269</p>
           <Link to="/fleaflicker/197269" style={styles.button}>
             Go to Fleaflicker Example
           </Link>
@@ -35,45 +38,30 @@ function LandingPage() {
   );
 }
 
-const styles = {
-    button: {
-        display: 'inline-block',
-        padding: '10px 20px',
-        backgroundColor: '#007bff',
-        color: 'white',
-        textDecoration: 'none',
-        borderRadius: '5px',
-        fontWeight: 'bold'
-    }
-}
-
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-
-        {/* --- SLEEPER ROUTES --- */}
-        <Route path="/league/:leagueId" element={<HomePage />} />
-        <Route path="/league/:leagueId/roster/:rosterId" element={<RosterDisplay />} />
-        <Route path="/league/:leagueId/free-agents" element={<FreeAgentsPage />} />
-        
-        {/* --- FLEAFICKER ROUTES --- */}
-        <Route path="/fleaflicker/:leagueId" element={<FleaflickerHomePage />} />
-        <Route path="/fleaflicker/:leagueId/free-agents" element={<FleaflickerFreeAgentsPage />} />
-        {/* --- THIS IS THE NEW ROUTE --- */}
-        <Route path="/fleaflicker/:leagueId/roster/:rosterId" element={<FleaflickerRosterDisplay />} />
-
-
-        {/* Catch-all for any other routes */}
-        <Route path="*" element={
-          <div style={{ padding: '40px', textAlign: 'center' }}>
-            <h2>Page Not Found</h2>
-            <Link to="/">Go to Home</Link>
-          </div>
-        } />
-      </Routes>
-    </Router>
+    <div style={styles.appContainer}>
+        <Router>
+            <Routes>
+                <Route path="/" element={<LandingPage />} />
+                {/* Sleeper Routes */}
+                <Route path="/league/:leagueId" element={<HomePage />} />
+                <Route path="/league/:leagueId/roster/:rosterId" element={<RosterDisplay />} />
+                <Route path="/league/:leagueId/free-agents" element={<FreeAgentsPage />} />
+                {/* Fleaflicker Routes */}
+                <Route path="/fleaflicker/:leagueId" element={<FleaflickerHomePage />} />
+                <Route path="/fleaflicker/:leagueId/free-agents" element={<FleaflickerFreeAgentsPage />} />
+                <Route path="/fleaflicker/:leagueId/roster/:rosterId" element={<FleaflickerRosterDisplay />} />
+                {/* Not Found Route */}
+                <Route path="*" element={
+                <div style={styles.pageContainer}>
+                    <h2 style={styles.h2}>Page Not Found</h2>
+                    <Link to="/" style={styles.link}>Go to Home</Link>
+                </div>
+                } />
+            </Routes>
+        </Router>
+    </div>
   );
 }
 

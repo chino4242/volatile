@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { get } from '../api/apiService';
+import { styles } from '../styles'; // Import the new shared styles
 
 const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
 
-// --- A reusable Modal component for popups ---
+// A reusable Modal component for popups, now using shared styles
 const Modal = ({ content, onClose }) => {
     const handleContentClick = (e) => e.stopPropagation();
 
@@ -14,19 +15,17 @@ const Modal = ({ content, onClose }) => {
         <div style={styles.modalOverlay} onClick={onClose}>
             <div style={styles.modalContent} onClick={handleContentClick}>
                 <button style={styles.closeButton} onClick={onClose}>&times;</button>
-                <div style={styles.modalBody}>
-                    {content}
-                </div>
+                {content}
             </div>
         </div>
     );
 };
 
-
 function cleanseName(name) {
     if (typeof name !== 'string') return '';
     return name.replace(/[^\w\s']+/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
+
 
 function FleaflickerFreeAgentsPage() {
   const { leagueId } = useParams();
@@ -34,110 +33,112 @@ function FleaflickerFreeAgentsPage() {
   const [enrichedFreeAgents, setEnrichedFreeAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [modalContent, setModalContent] = useState(null); // State for the modal
+  const [modalContent, setModalContent] = useState(null);
 
   const fetchData = useCallback(async (currentLeagueId) => {
     if (!currentLeagueId) {
-      setError("A Fleaflicker League ID is required.");
-      setLoading(false);
-      return;
+        setError("A Fleaflicker League ID is required.");
+        setLoading(false);
+        return;
     }
-
+  
     setLoading(true);
     setError(null);
-    try {
-      console.log(`--- Fetching Fleaflicker league data for league: ${currentLeagueId} ---`);
-      
-      const [fleaflickerData, fantasyCalcValues] = await Promise.all([
-        get(`/api/fleaflicker/league/${currentLeagueId}/data`),
-        // --- THIS IS THE FIX: Changed numQbs from 2 to 1 for 1-QB leagues ---
-        get(`/api/values/fantasycalc?isDynasty=true&numQbs=1&ppr=0.5`)
-      ]);
-
-      const freeAgentsFromApi = fleaflickerData.free_agents || [];
-      console.log(`Found ${freeAgentsFromApi.length} free agents from the API.`);
-      
-      // Since Fleaflicker free agents are determined by name matching,
-      // we need to call our python API to get the sleeper_id and other details
-      const playerIds = freeAgentsFromApi.map(p => p.sleeper_id);
-      let analysisDataMap = new Map();
-
-      if (playerIds.length > 0) {
-        const analysisResponse = await fetch(`${PYTHON_API_BASE_URL}/api/enriched-players/batch`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sleeper_ids: playerIds })
-        });
-        if (!analysisResponse.ok) throw new Error(`Python API error: ${analysisResponse.status}`);
+    try {    
+        const [fleaflickerData, fantasyCalcValues] = await Promise.all([
+          get(`/api/fleaflicker/league/${currentLeagueId}/data`),
+          get(`/api/values/fantasycalc?isDynasty=true&numQbs=1&ppr=0.5`)
+        ]);
         
-        const analysisPlayers = await analysisResponse.json();
-        analysisPlayers.forEach(player => {
-          if (player?.sleeper_id && !player.error) {
-            analysisDataMap.set(String(player.sleeper_id), player);
-          }
+        const masterPlayerList = fleaflickerData.master_player_list || [];
+        const rosteredPlayerNames = new Set();
+        fleaflickerData.rosters.forEach(roster => {
+            roster.players.forEach(player => rosteredPlayerNames.add(cleanseName(player.full_name)))
         });
+        
+        const actualFreeAgents = masterPlayerList.filter(p => !rosteredPlayerNames.has(cleanseName(p.full_name)));
+  
+        const playerIds = actualFreeAgents.map(p => p.sleeper_id);
+        let analysisDataMap = new Map();
+  
+        if (playerIds.length > 0) {
+          const analysisResponse = await fetch(`${PYTHON_API_BASE_URL}/api/enriched-players/batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sleeper_ids: playerIds })
+          });
+          if (!analysisResponse.ok) throw new Error(`Python API error: ${analysisResponse.status}`);
+          
+          const analysisPlayers = await analysisResponse.json();
+          analysisPlayers.forEach(player => {
+            if (player?.sleeper_id && !player.error) {
+              analysisDataMap.set(String(player.sleeper_id), player);
+            }
+          });
+        }
+  
+        const fantasyCalcValuesMap = new Map(Object.entries(fantasyCalcValues));
+  
+        const finalFreeAgents = actualFreeAgents.map(player => {
+          const calcValueData = fantasyCalcValuesMap.get(cleanseName(player.full_name));
+          const analysis = analysisDataMap.get(String(player.sleeper_id));
+  
+          return {
+            ...player,
+            trade_value: calcValueData?.value || 0,
+            age: player.age || analysis?.age || 'N/A',
+            overall_rank: analysis?.overall_rank || 'N/A',
+            positional_rank: analysis?.positional_rank || 'N/A',
+            tier: analysis?.tier || 'N/A',
+            zap_score: analysis?.zap_score || 'N/A',
+            category: analysis?.category || 'N/A',
+            comparables: analysis?.comparables || 'N/A',
+            draft_capital_delta: analysis?.draft_capital_delta || 'N/A',
+            notes_lrqb: analysis?.notes_lrqb || '',
+            rsp_pos_rank: analysis?.rsp_pos_rank || 'N/A',
+            rsp_2023_2025_rank: analysis?.rsp_2023_2025_rank || 'N/A',
+            rp_2021_2025_rank: analysis?.rp_2021_2025_rank || 'N/A',
+            comparison_spectrum: analysis?.comparison_spectrum || 'N/A',
+            depth_of_talent_score: analysis?.depth_of_talent_score || 'N/A',
+            depth_of_talent_desc: analysis?.depth_of_talent_desc || '',
+            notes_rsp: analysis?.notes_rsp || '',
+          };
+        });
+  
+        const skillPositions = ['QB', 'WR', 'RB', 'TE'];
+        const filteredAndSorted = finalFreeAgents
+          .filter(p => skillPositions.includes(p.position) && p.trade_value > 0)
+          .sort((a, b) => b.trade_value - a.trade_value);
+        
+        setEnrichedFreeAgents(filteredAndSorted);
+  
+      } catch (e) {
+        console.error("Failed to fetch Fleaflicker page data:", e);
+        setError(e.message);
+      } finally {
+        setLoading(false);
       }
-
-
-      const fantasyCalcValuesMap = new Map(Object.entries(fantasyCalcValues));
-
-      const finalFreeAgents = freeAgentsFromApi.map(player => {
-        const calcValueData = fantasyCalcValuesMap.get(cleanseName(player.full_name));
-        const analysis = analysisDataMap.get(String(player.sleeper_id));
-
-        return {
-          ...player,
-          trade_value: calcValueData?.value || 0,
-          // Add all the other analysis fields
-          age: player.age || analysis?.age || 'N/A',
-          overall_rank: analysis?.overall_rank || 'N/A',
-          positional_rank: analysis?.positional_rank || 'N/A',
-          tier: analysis?.tier || 'N/A',
-          zap_score: analysis?.zap_score || 'N/A',
-          category: analysis?.category || 'N/A',
-          comparables: analysis?.comparables || 'N/A',
-          draft_capital_delta: analysis?.draft_capital_delta || 'N/A',
-          notes_lrqb: analysis?.notes_lrqb || '',
-          rsp_pos_rank: analysis?.rsp_pos_rank || 'N/A',
-          rsp_2023_2025_rank: analysis?.rsp_2023_2025_rank || 'N/A',
-          rp_2021_2025_rank: analysis?.rp_2021_2025_rank || 'N/A',
-          comparison_spectrum: analysis?.comparison_spectrum || 'N/A',
-          depth_of_talent_score: analysis?.depth_of_talent_score || 'N/A',
-          depth_of_talent_desc: analysis?.depth_of_talent_desc || '',
-          notes_rsp: analysis?.notes_rsp || '',
-        };
-      });
-
-      const skillPositions = ['QB', 'WR', 'RB', 'TE'];
-      const filteredAndSorted = finalFreeAgents
-        .filter(p => skillPositions.includes(p.position) && p.trade_value > 0)
-        .sort((a, b) => b.trade_value - a.trade_value);
-      
-      setEnrichedFreeAgents(filteredAndSorted);
-
-    } catch (e) {
-      console.error("Failed to fetch Fleaflicker page data:", e);
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
   }, []);
 
   useEffect(() => {
     fetchData(leagueId);
   }, [leagueId, fetchData]);
 
-  if (loading) return <div style={{ padding: '20px' }}>Loading Fleaflicker free agents...</div>;
-  if (error) return <div style={{ padding: '20px', color: 'red' }}>Error: {error}</div>;
+  // Use a state for hover to dynamically change row style
+  const [hoveredRow, setHoveredRow] = useState(null);
+
+  if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
+  if (error) return <div style={{...styles.pageContainer, ...styles.errorText}}>Error: {error}</div>;
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      <h2>Top Fleaflicker Free Agents by Value for League {leagueId}</h2>
-      <p>Found {enrichedFreeAgents.length} relevant players, sorted by trade value.</p>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse', width: '100%', whiteSpace: 'nowrap' }}>
+    <div style={styles.pageContainer}>
+      <h1 style={styles.h1}>Top Fleaflicker Free Agents</h1>
+      <p style={styles.p}>Found {enrichedFreeAgents.length} relevant players for league {leagueId}, sorted by trade value.</p>
+      
+      <div style={styles.tableContainer}>
+        <table style={styles.table}>
           <thead>
-            <tr style={{ backgroundColor: '#f0f0f0' }}>
+            <tr>
               <th style={styles.th}>Full Name</th>
               <th style={styles.th}>Pos</th>
               <th style={styles.th}>Team</th>
@@ -159,12 +160,17 @@ function FleaflickerFreeAgentsPage() {
           </thead>
           <tbody>
             {enrichedFreeAgents.map((player) => (
-              <tr key={player.sleeper_id}>
+              <tr 
+                key={player.sleeper_id}
+                onMouseEnter={() => setHoveredRow(player.sleeper_id)}
+                onMouseLeave={() => setHoveredRow(null)}
+                style={hoveredRow === player.sleeper_id ? styles.trHover : {}}
+              >
                 <td style={styles.td}>{player.full_name || 'N/A'}</td>
                 <td style={styles.td}>{player.position}</td>
                 <td style={styles.td}>{player.team || 'FA'}</td>
                 <td style={styles.td}>{player.age || 'N/A'}</td>
-                <td style={styles.td}><strong>{player.trade_value}</strong></td>
+                <td style={{...styles.td, ...styles.valueCell}}>{player.trade_value}</td>
                 <td style={styles.td}>{player.overall_rank}</td>
                 <td style={styles.td}>{player.positional_rank}</td>
                 <td style={styles.td}>{player.tier}</td>
@@ -194,11 +200,12 @@ function FleaflickerFreeAgentsPage() {
           </tbody>
         </table>
       </div>
+
       {modalContent && (
         <Modal 
             content={
                 <>
-                    <h3>{modalContent.title}</h3>
+                    <h2 style={styles.h2}>{modalContent.title}</h2>
                     <div style={styles.modalBody}>{modalContent.body}</div>
                 </>
             } 
@@ -208,15 +215,5 @@ function FleaflickerFreeAgentsPage() {
     </div>
   );
 }
-
-const styles = {
-    th: { border: '1px solid #ddd', padding: '8px', textAlign: 'left' },
-    td: { border: '1px solid #ddd', padding: '8px' },
-    notesButton: { padding: '5px 10px', border: '1px solid #ccc', borderRadius: '4px', backgroundColor: '#f9f9f9', cursor: 'pointer' },
-    modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-    modalContent: { backgroundColor: 'white', padding: '20px 40px', borderRadius: '8px', maxWidth: '600px', maxHeight: '80%', overflowY: 'auto', position: 'relative' },
-    modalBody: { whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '14px', lineHeight: 1.6 },
-    closeButton: { position: 'absolute', top: '10px', right: '10px', border: 'none', background: 'transparent', fontSize: '24px', cursor: 'pointer' }
-};
 
 export default FleaflickerFreeAgentsPage;
