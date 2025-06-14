@@ -22,13 +22,16 @@ function HomePage() {
     setLoading(true);
     setError(null);
     try {
-      // This calls the /api/league/:leagueId/managers endpoint
-      const data = await get(`/api/league/${currentLeagueId}/managers`);
+      console.log('Fetching managers for league:', currentLeagueId); // Debug log
+      
+      const data = await get(`/api/sleeper/league/${currentLeagueId}/managers`);
+      
+      console.log('Received managers data:', data); // Debug log
 
-      // <<< DEBUG LOG: Inspect the data received from the API >>>
-      console.log("Data received from /api/league/.../managers:", data);
+      if (!Array.isArray(data)) {
+        throw new Error('Invalid response format from server');
+      }
 
-      // Sort managers alphabetically by display name
       data.sort((a, b) => (a.display_name || '').localeCompare(b.display_name || ''));
       setManagers(data);
     } catch (e) {
