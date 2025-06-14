@@ -1,6 +1,6 @@
 // server/server.js
 
-// Keep these error handlers at the top
+// Keep these error handlers at the top. Empty commit
 process.on('unhandledRejection', (reason, promise) => {
     console.error('SERVER CRITICAL ERROR: Unhandled Rejection at:', promise, 'reason:', reason);
     process.exit(1);
