@@ -50,7 +50,8 @@ function FleaflickerFreeAgentsPage() {
       
       const [fleaflickerData, fantasyCalcValues] = await Promise.all([
         get(`/api/fleaflicker/league/${currentLeagueId}/data`),
-        get(`/api/values/fantasycalc?isDynasty=true&numQbs=2&ppr=0.5`)
+        // --- THIS IS THE FIX: Changed numQbs from 2 to 1 for 1-QB leagues ---
+        get(`/api/values/fantasycalc?isDynasty=true&numQbs=1&ppr=0.5`)
       ]);
 
       const freeAgentsFromApi = fleaflickerData.free_agents || [];
