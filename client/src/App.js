@@ -5,7 +5,9 @@ import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import RosterDisplay from './pages/RosterDisplay';
 import FreeAgentsPage from './pages/FreeAgentsPage';
-import FleaflickerFreeAgentsPage from './pages/FleaflickerFreeAgentsPage'; // Import the new component
+import FleaflickerFreeAgentsPage from './pages/FleaflickerFreeAgentsPage';
+import FleaflickerHomePage from './pages/FleaflickerHomePage';
+import FleaflickerRosterDisplay from './pages/FleaflickerRosterDisplay'; // Import the new component
 
 // A simple landing page component to choose the platform
 function LandingPage() {
@@ -24,7 +26,7 @@ function LandingPage() {
         <div style={{ padding: '20px', border: '1px solid #ddd', borderRadius: '8px' }}>
           <h2>Fleaflicker</h2>
           <p>Example League ID: 197269</p>
-          <Link to="/fleaflicker/197269/free-agents" style={styles.button}>
+          <Link to="/fleaflicker/197269" style={styles.button}>
             Go to Fleaflicker Example
           </Link>
         </div>
@@ -56,8 +58,12 @@ function App() {
         <Route path="/league/:leagueId/roster/:rosterId" element={<RosterDisplay />} />
         <Route path="/league/:leagueId/free-agents" element={<FreeAgentsPage />} />
         
-        {/* --- NEW: FLEAFICKER ROUTE --- */}
+        {/* --- FLEAFICKER ROUTES --- */}
+        <Route path="/fleaflicker/:leagueId" element={<FleaflickerHomePage />} />
         <Route path="/fleaflicker/:leagueId/free-agents" element={<FleaflickerFreeAgentsPage />} />
+        {/* --- THIS IS THE NEW ROUTE --- */}
+        <Route path="/fleaflicker/:leagueId/roster/:rosterId" element={<FleaflickerRosterDisplay />} />
+
 
         {/* Catch-all for any other routes */}
         <Route path="*" element={
