@@ -3,7 +3,7 @@
 // This line is the key:
 // It looks for an environment variable named REACT_APP_API_BASE_URL, which you will set on Render.
 // If it can't find it (like when you are running locally), it will fall back to using 'http://localhost:5000'.
-const REACT_APP_API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const REACT_APP_API_URL = process.env.REACT_APP_API_URL?.replace(/\/$/, '') || 'http://localhost:5000';
 const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
 
 
@@ -43,7 +43,13 @@ async function handleResponse(response) {
  */
 export async function get(endpoint, options = {}) {
   try {
-    const response = await fetch(`${REACT_APP_API_URL}${endpoint}`, {
+    // Ensure endpoint starts with '/'
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${REACT_APP_API_URL}${normalizedEndpoint}`;
+    
+    console.log('Making API request to:', url); // Debug log
+    
+    const response = await fetch(url, {
       method: 'GET',
       ...options,
       headers: {
@@ -53,9 +59,8 @@ export async function get(endpoint, options = {}) {
     });
     return handleResponse(response);
   } catch (error) {
-    // This catches network errors (like "failed to fetch") or errors thrown from handleResponse.
-    console.error(`GET request to ${REACT_APP_API_URL}${endpoint} failed:`, error);
-    throw error; // Re-throw the error so the calling component can handle it.
+    console.error(`GET request failed:`, error);
+    throw error;
   }
 }
 

@@ -39,6 +39,11 @@ app.get('/api/hello', (req, res) => {
     res.json({ message: 'Welcome to the brains behind Volatile Creative - API Speaking!' });
 });
 
+// Add this near your other routes
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Start the server
 const serverInstance = app.listen(PORT, () => {
     console.log(`Server is running and listening on http://localhost:${PORT}`);
