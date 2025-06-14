@@ -5,7 +5,7 @@ const router = express.Router();
 
 // This route will match /api/sleeper/league/:leagueId/managers
 // because of how it's used in server.js
-router.get('/league/:leagueId/managers', async (req, res) => {
+router.get('/:leagueId/managers', async (req, res) => {
     const { leagueId } = req.params;
     try {
         const usersUrl = `https://api.sleeper.app/v1/league/${leagueId}/users`;
