@@ -4,7 +4,7 @@ import pandas as pd
 import os
 import numpy as np
 import requests # Make sure to install this: pip install requests
-import services
+import re # Import the regular expressions module
 
 # --- Configuration ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -13,8 +13,56 @@ SLEEPER_PLAYERS_JSON_PATH = os.path.join(SERVER_DATA_DIR, 'nfl_players_data.json
 ANALYSIS_DATA_DIR = os.path.join(CURRENT_DIR, 'data')
 ENRICHED_PLAYERS_OUTPUT_PATH = os.path.join(SERVER_DATA_DIR, 'enriched_players_master.json')
 
+# --- Path to the consolidated AI analysis file ---
+CONSOLIDATED_ANALYSIS_PATH = os.path.join(CURRENT_DIR, 'analysis_results', 'consolidated_analysis.json')
+
+
 if not os.path.exists(SERVER_DATA_DIR):
     os.makedirs(SERVER_DATA_DIR)
+
+
+# --- Define a consistent name cleansing function locally ---
+def cleanse_name(name):
+    """
+    Cleanses player names for consistent matching, handling common suffixes.
+    """
+    if not isinstance(name, str):
+        return ""
+    
+    cleaned_name = name.lower()
+    
+    suffixes_to_remove = [' iii', ' iv', ' ii', ' jr', ' sr', ' v']
+    for suffix in suffixes_to_remove:
+        if cleaned_name.endswith(suffix):
+            cleaned_name = cleaned_name[:-len(suffix)].strip()
+            break
+            
+    cleaned_name = re.sub(r"[^\w\s']", '', cleaned_name)
+    cleaned_name = re.sub(r'\s+', ' ', cleaned_name).strip()
+    return cleaned_name
+
+def cleanse_df_names(df, name_column):
+    """Applies the local cleanse_name function to a DataFrame column."""
+    if name_column in df.columns:
+        df['player_cleansed_name'] = df[name_column].apply(cleanse_name)
+    return df
+
+
+def load_consolidated_analysis(file_path):
+    """Loads the consolidated analysis lookup file."""
+    print(f"--- Loading consolidated AI analysis from: {file_path} ---")
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            analysis_lookup = json.load(f)
+        print(f"--- Successfully loaded {len(analysis_lookup)} AI analyses. ---")
+        return analysis_lookup
+    except FileNotFoundError:
+        print(f"--- WARNING: Consolidated analysis file not found at {file_path}. Skipping AI analysis merge. ---")
+        return {}
+    except json.JSONDecodeError:
+        print(f"--- WARNING: Consolidated analysis file is not valid JSON. Skipping AI analysis merge. ---")
+        return {}
+
 
 def fetch_fantasy_calc_data(is_dynasty=True, num_qbs=2, ppr=1):
     """Fetches player values directly from the FantasyCalc API."""
@@ -22,7 +70,7 @@ def fetch_fantasy_calc_data(is_dynasty=True, num_qbs=2, ppr=1):
     print(f"Fetching player values from FantasyCalc: {url}")
     try:
         response = requests.get(url)
-        response.raise_for_status()
+        response.raise_for_status() 
         players = response.json()
 
         if not isinstance(players, list):
@@ -32,7 +80,6 @@ def fetch_fantasy_calc_data(is_dynasty=True, num_qbs=2, ppr=1):
         player_list = []
         for player_data in players:
             player_info = player_data.get('player', {})
-            # We only need the ID and value columns for the final filtering step
             if player_info.get('sleeperId'):
                 player_list.append({
                     'sleeper_id': str(player_info['sleeperId']),
@@ -53,7 +100,8 @@ def load_and_prep_excel(file_path, column_rename_map, original_name_col='Player'
         print(f"Loading data from: {file_path}")
         df = pd.read_excel(file_path, engine='openpyxl')
         df.rename(columns={original_name_col: 'player_name_original'}, inplace=True)
-        df = services.cleanse_names(df, 'player_name_original')
+        # Use the local cleansing function
+        df = cleanse_df_names(df, 'player_name_original')
         df.rename(columns=column_rename_map, inplace=True)
         
         original_rows = len(df)
@@ -79,7 +127,8 @@ def load_sleeper_player_data(file_path):
             player_obj['player_name_original'] = name_to_cleanse
             player_list.append(player_obj)
         df = pd.DataFrame(player_list)
-        df = services.cleanse_names(df, 'player_name_original')
+        # Use the local cleansing function
+        df = cleanse_df_names(df, 'player_name_original')
         print(f"Successfully loaded and prepped {len(df)} players from Sleeper.")
         return df
     except Exception as e:
@@ -89,7 +138,7 @@ def load_sleeper_player_data(file_path):
 def main():
     print("--- Starting Player Data Enrichment Process ---")
     
-    # --- Step 1: Load all source data first ---
+    # Step 1: Load all source data
     df_sleeper_players = load_sleeper_player_data(SLEEPER_PLAYERS_JSON_PATH)
     if df_sleeper_players.empty: return
 
@@ -97,6 +146,8 @@ def main():
     if df_fantasy_calc.empty:
         print("Halting process: Cannot proceed without FantasyCalc value data.")
         return
+
+    ai_analysis_lookup = load_consolidated_analysis(CONSOLIDATED_ANALYSIS_PATH)
 
     sf_rename_map = {'Overall': 'overall_rank', 'Pos. Rank': 'positional_rank', 'Tier': 'tier'}
     lrqb_rename_map = {'ZAP Score': 'zap_score', 'Category': 'category', 'Comparables': 'comparables', 'Draft Capital Delta': 'draft_capital_delta', 'Notes': 'notes_lrqb'}
@@ -115,7 +166,7 @@ def main():
     rsp_path = os.path.join(ANALYSIS_DATA_DIR, 'common', 'RSP_Rookies.xlsx')
     df_rsp = load_and_prep_excel(rsp_path, rsp_rename_map)
     
-    # --- Step 2: Enrich the complete Sleeper list with analysis data ---
+    # Step 2: Enrich the complete Sleeper list with Excel data
     print("Enriching full Sleeper list with analysis data by name...")
     df_enriched = df_sleeper_players
     analysis_dfs = {
@@ -125,40 +176,65 @@ def main():
     }
     for name, (df_analysis, analysis_cols) in analysis_dfs.items():
         if not df_analysis.empty:
-            # Keep track of columns before the merge to check success
-            cols_before = df_enriched.shape[1]
-            key_col = analysis_cols[0] # The first column in the list of values is a good check
-            
             cols_to_merge = ['player_cleansed_name'] + [col for col in analysis_cols if col in df_analysis.columns]
             df_enriched = pd.merge(df_enriched, df_analysis[cols_to_merge], on='player_cleansed_name', how='left')
             
-            # Diagnostic check
+            key_col = analysis_cols[0] 
             matches = df_enriched[key_col].notna().sum()
             print(f"   - Merged {name}: Found {matches} players with data for column '{key_col}'.")
+    
+    print("Initial Excel enrichment complete.")
 
-    
-    print("Initial enrichment complete.")
+    # Step 3: Add the consolidated AI analysis
+    if ai_analysis_lookup:
+        print("--- Adding AI analysis to the master list... ---")
+        df_enriched['gemini_analysis'] = df_enriched['player_cleansed_name'].map(ai_analysis_lookup)
+        
+        ai_matches = df_enriched['gemini_analysis'].notna().sum()
+        print(f"   - Successfully added AI analysis for {ai_matches} players.")
+        
+        matched_names = set(df_enriched[df_enriched['gemini_analysis'].notna()]['player_cleansed_name'])
+        all_ai_names = set(ai_analysis_lookup.keys())
+        unmatched_ai_names = all_ai_names - matched_names
+        
+        if unmatched_ai_names:
+            print("\n--- DIAGNOSTIC: AI Analysis names that did not find a match in any source ---")
+            for name in sorted(list(unmatched_ai_names)):
+                print(f"  - {name}")
+            print("--------------------------------------------------------------------")
 
-    # --- Step 3: Filter the enriched list with FantasyCalc data by ID ---
-    print("Filtering enriched list with FantasyCalc data by Sleeper ID...")
-    
-    # We only need the value columns and the ID for the merge
-    fc_cols_to_merge = ['sleeper_id', 'fantasy_calc_value']
-    
-    # Perform the final inner merge to filter down to players with trade values
+    # Step 4: Filter the final, fully-enriched list with FantasyCalc data
+    print("Filtering final list with FantasyCalc data by Sleeper ID...")
     df_final_enriched = pd.merge(
         df_enriched,
-        df_fantasy_calc[fc_cols_to_merge],
+        df_fantasy_calc,
         on='sleeper_id',
         how='inner'
     )
-    
     print(f"Final filtering complete. Master list contains {len(df_final_enriched)} players.")
 
-    # --- Step 4: Final cleanup and save ---
+    # --- FINAL DATAFRAME DIAGNOSTICS --- (can be removed after confirming fix)
+    print("\n--- FINAL DATAFRAME DIAGNOSTICS ---")
+    player_to_check = 'emeka egbuka' 
+    player_row = df_final_enriched[df_final_enriched['player_cleansed_name'] == player_to_check]
+    
+    if not player_row.empty:
+        print(f"--- Data for '{player_to_check}' before saving: ---")
+        print(player_row.fillna('N/A').to_dict(orient='records')[0])
+    else:
+        print(f"--- Could not find '{player_to_check}' in the final filtered DataFrame. ---")
+    print("------------------------------------")
+
+
+    # Step 5: Final cleanup and save
+    # --- THIS IS THE FIX ---
+    # First, convert the object types to ensure proper NaN handling.
+    # Then, replace all remaining NaN values with None for JSON compatibility.
+    df_final_enriched = df_final_enriched.astype(object)
     df_final = df_final_enriched.replace({np.nan: None})
     
     records = df_final.to_dict(orient='records')
+    
     with open(ENRICHED_PLAYERS_OUTPUT_PATH, 'w', encoding='utf-8') as f:
         json.dump(records, f, indent=4)
         
