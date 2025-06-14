@@ -3,7 +3,7 @@
 // This line is the key:
 // It looks for an environment variable named REACT_APP_API_BASE_URL, which you will set on Render.
 // If it can't find it (like when you are running locally), it will fall back to using 'http://localhost:5000'.
-const REACT_APP_API_URLL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const REACT_APP_API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
 
 
