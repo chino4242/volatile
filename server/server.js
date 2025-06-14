@@ -23,14 +23,25 @@ const fleaflickerRoutes = require('./routes/fleaflickerRosterRoutes'); // <<< AD
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Update CORS configuration
+// Add detailed request logging
+app.use((req, res, next) => {
+  console.log({
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    url: req.url,
+    path: req.path,
+    params: req.params,
+    query: req.query,
+    headers: req.headers
+  });
+  next();
+});
+
+// Update your CORS options to be more permissive during debugging
 const corsOptions = {
-  origin: [
-    'http://localhost:3000',
-    'https://volatile-creative.onrender.com',
-    'https://pr-*.volatile-creative.onrender.com'
-  ],
-  methods: ['GET', 'POST'],
+  origin: '*', // Warning: Change this back to your specific domains after debugging
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
   optionsSuccessStatus: 204
 };
@@ -45,12 +56,6 @@ app.use('/api/sleeper', sleeperLeagueRoutes);
 app.use('/api/fleaflicker', fleaflickerRoutes); // <<< ADD THIS LINE TO USE THE NEW ROUTES
 app.use('/api', fantasyCalcRoutes); 
 
-// Add request logging middleware after CORS
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  next();
-});
-
 // Simple test route
 app.get('/api/hello', (req, res) => {
     res.json({ message: 'Welcome to the brains behind Volatile Creative - API Speaking!' });
@@ -61,18 +66,51 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Add before starting the server
-app.use((err, req, res, next) => {
-  console.error('Global error handler:', err);
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
-  });
+// Add a test route specifically for the managers endpoint
+app.get('/api/test/managers', (req, res) => {
+  res.json({ status: 'Managers endpoint reachable' });
 });
 
-// Add a 404 handler for unmatched routes
+// Update the 404 handler with more detail
 app.use((req, res) => {
-  console.log(`404 - Route not found: ${req.method} ${req.url}`);
-  res.status(404).json({ error: 'Route not found' });
+  const error = {
+    status: 404,
+    message: 'Route not found',
+    request: {
+      method: req.method,
+      url: req.url,
+      path: req.path,
+      params: req.params,
+    },
+    availableRoutes: app._router.stack
+      .filter(r => r.route)
+      .map(r => ({ 
+        path: r.route.path, 
+        method: Object.keys(r.route.methods)[0]
+      }))
+  };
+  
+  console.log('404 Error Details:', error);
+  res.status(404).json(error);
+});
+
+// Update the error handler with more detail
+app.use((err, req, res, next) => {
+  const errorResponse = {
+    status: err.status || 500,
+    message: process.env.NODE_ENV === 'production' 
+      ? 'Internal server error' 
+      : err.message,
+    path: req.path,
+    method: req.method
+  };
+  
+  console.error('Error Details:', {
+    ...errorResponse,
+    stack: err.stack
+  });
+  
+  res.status(errorResponse.status).json(errorResponse);
 });
 
 // Start the server
