@@ -3,31 +3,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { get } from '../api/apiService';
+import { styles } from '../styles'; // Import the shared styles
 
 const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
 
-// --- A reusable Modal component for popups ---
+// A reusable Modal component for popups, now using shared styles
 const Modal = ({ content, onClose }) => {
-    // Stop the click from bubbling up and closing the modal when the content is clicked
     const handleContentClick = (e) => e.stopPropagation();
 
     return (
         <div style={styles.modalOverlay} onClick={onClose}>
             <div style={styles.modalContent} onClick={handleContentClick}>
                 <button style={styles.closeButton} onClick={onClose}>&times;</button>
-                <div style={styles.modalBody}>
-                    {content}
-                </div>
+                {content}
             </div>
         </div>
     );
 };
-
-
-function cleanseName(name) {
-    if (typeof name !== 'string') return '';
-    return name.replace(/[^\w\s']+/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
-}
 
 function FreeAgentsPage() {
   const { leagueId } = useParams();
@@ -36,6 +28,7 @@ function FreeAgentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [modalContent, setModalContent] = useState(null);
+  const [hoveredRow, setHoveredRow] = useState(null);
 
 
   const fetchData = useCallback(async (currentLeagueId) => {
@@ -48,11 +41,8 @@ function FreeAgentsPage() {
     setLoading(true);
     setError(null);
     try {
-      console.log("--- Fetching free agents list and FantasyCalc values... ---");
-      const [freeAgentsData, fantasyCalcValues] = await Promise.all([
-        get(`/api/sleeper/league/${currentLeagueId}/free-agents`),
-        get(`/api/values/fantasycalc?isDynasty=true&numQbs=2&ppr=0.5`)
-      ]);
+      console.log("--- Fetching Sleeper free agents list... ---");
+      const freeAgentsData = await get(`/api/sleeper/league/${currentLeagueId}/free-agents`);
 
       const playerIds = freeAgentsData.map(p => p.player_id);
       let analysisDataMap = new Map();
@@ -67,53 +57,22 @@ function FreeAgentsPage() {
         if (!analysisResponse.ok) throw new Error(`Python API error: ${analysisResponse.status}`);
         
         const analysisPlayers = await analysisResponse.json();
-        console.log("Python API analysis response:", analysisPlayers);
-
         analysisPlayers.forEach(player => {
-          // --- THIS IS THE FIX: Use the correct key 'sleeper_id' ---
           if (player?.sleeper_id && !player.error) {
             analysisDataMap.set(String(player.sleeper_id), player);
           }
         });
       }
 
-      const fantasyCalcValuesMap = new Map(Object.entries(fantasyCalcValues));
-      console.log("--- Processing and enriching data... ---");
-
-      const finalFreeAgents = freeAgentsData.map((player, index) => {
+      const finalFreeAgents = freeAgentsData.map(player => {
         const analysis = analysisDataMap.get(String(player.player_id));
-        const calcValueData = fantasyCalcValuesMap.get(cleanseName(player.full_name));
-
-        if (index < 3) { // Debug first 3 players
-          console.log(`Matching for ${player.full_name}:`, { analysis, calcValueData });
-        }
-        
-        return {
-          ...player,
-          age: player.age || analysis?.age || 'N/A',
-          trade_value: calcValueData?.value || 0,
-          overall_rank: analysis?.overall_rank || 'N/A',
-          positional_rank: analysis?.positional_rank || 'N/A',
-          tier: analysis?.tier || 'N/A',
-          zap_score: analysis?.zap_score || 'N/A',
-          category: analysis?.category || 'N/A',
-          comparables: analysis?.comparables || 'N/A',
-          draft_capital_delta: analysis?.draft_capital_delta || 'N/A',
-          notes_lrqb: analysis?.notes_lrqb || '',
-          rsp_pos_rank: analysis?.rsp_pos_rank || 'N/A',
-          rsp_2023_2025_rank: analysis?.rsp_2023_2025_rank || 'N/A',
-          rp_2021_2025_rank: analysis?.rp_2021_2025_rank || 'N/A',
-          comparison_spectrum: analysis?.comparison_spectrum || 'N/A',
-          depth_of_talent_score: analysis?.depth_of_talent_score || 'N/A',
-          depth_of_talent_desc: analysis?.depth_of_talent_desc || '',
-          notes_rsp: analysis?.notes_rsp || '',
-        };
+        return { ...player, ...analysis }; // Combine the objects
       });
 
       const skillPositions = ['QB', 'WR', 'RB', 'TE'];
       const filteredAndSorted = finalFreeAgents
-        .filter(p => skillPositions.includes(p.position) && (p.team || p.trade_value > 0))
-        .sort((a, b) => b.trade_value - a.trade_value);
+        .filter(p => skillPositions.includes(p.position) && p.fantasy_calc_value > 0)
+        .sort((a, b) => (b.fantasy_calc_value || 0) - (a.fantasy_calc_value || 0));
       
       setEnrichedFreeAgents(filteredAndSorted);
 
@@ -129,17 +88,26 @@ function FreeAgentsPage() {
     fetchData(leagueId);
   }, [leagueId, fetchData]);
 
-  if (loading) return <div style={{ padding: '20px' }}>Loading free agents and analysis...</div>;
-  if (error) return <div style={{ padding: '20px', color: 'red' }}>Error: {error}</div>;
+  if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
+  if (error) return <div style={{...styles.pageContainer, ...styles.errorText}}>Error: {error}</div>;
+
+  const wrappingCellStyle = {
+      whiteSpace: 'normal',
+      wordBreak: 'break-word',
+      maxWidth: '250px' // Set a max-width to encourage wrapping
+  };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      <h2>Top Free Agents by Value for League {leagueId}</h2>
-      <p>Found {enrichedFreeAgents.length} relevant players, sorted by trade value.</p>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse', width: '100%', whiteSpace: 'nowrap' }}>
+    <div style={styles.pageContainer}>
+      <h1 style={styles.h1}>Top Sleeper Free Agents</h1>
+      <p style={styles.p}>Found {enrichedFreeAgents.length} relevant players for league {leagueId}, sorted by trade value.</p>
+      
+      <div style={styles.tableContainer}>
+        {/* --- FIX: Removed table-layout: fixed to allow browser to auto-size columns --- */}
+        <table style={styles.table}>
           <thead>
-            <tr style={{ backgroundColor: '#f0f0f0' }}>
+            <tr>
+              {/* --- FIX: Removed explicit width styles from headers --- */}
               <th style={styles.th}>Full Name</th>
               <th style={styles.th}>Pos</th>
               <th style={styles.th}>Team</th>
@@ -150,31 +118,37 @@ function FreeAgentsPage() {
               <th style={styles.th}>Tier</th>
               <th style={styles.th}>ZAP</th>
               <th style={styles.th}>Depth Score</th>
-              <th style={{...styles.th, minWidth: '150px'}}>Comp Spectrum</th>
-              <th style={{...styles.th, minWidth: '150px'}}>Category</th>
-              <th style={{...styles.th, minWidth: '150px'}}>Draft Delta</th>
+              <th style={styles.th}>Comp Spectrum</th>
+              <th style={styles.th}>Category</th>
+              <th style={styles.th}>Draft Delta</th>
               <th style={styles.th}>RSP Pos Rk</th>
               <th style={styles.th}>RSP 23-25</th>
               <th style={styles.th}>RP 21-25</th>
               <th style={styles.th}>Notes</th>
+              <th style={styles.th}>AI Analysis</th>
             </tr>
           </thead>
           <tbody>
             {enrichedFreeAgents.map((player) => (
-              <tr key={player.player_id}>
+              <tr 
+                key={player.player_id}
+                onMouseEnter={() => setHoveredRow(player.player_id)}
+                onMouseLeave={() => setHoveredRow(null)}
+                style={hoveredRow === player.player_id ? styles.trHover : {}}
+              >
                 <td style={styles.td}>{player.full_name || 'N/A'}</td>
                 <td style={styles.td}>{player.position}</td>
                 <td style={styles.td}>{player.team}</td>
                 <td style={styles.td}>{player.age}</td>
-                <td style={styles.td}><strong>{player.trade_value}</strong></td>
+                <td style={{...styles.td, ...styles.valueCell}}>{player.fantasy_calc_value}</td>
                 <td style={styles.td}>{player.overall_rank}</td>
                 <td style={styles.td}>{player.positional_rank}</td>
                 <td style={styles.td}>{player.tier}</td>
                 <td style={styles.td}>{player.zap_score}</td>
                 <td style={styles.td}>{player.depth_of_talent_score}</td>
-                <td style={styles.td}>{player.comparison_spectrum}</td>
-                <td style={styles.td}>{player.category}</td>
-                <td style={styles.td}>{player.draft_capital_delta}</td>
+                <td style={{...styles.td, ...wrappingCellStyle}}>{player.comparison_spectrum}</td>
+                <td style={{...styles.td, ...wrappingCellStyle}}>{player.category}</td>
+                <td style={{...styles.td, ...wrappingCellStyle}}>{player.draft_capital_delta}</td>
                 <td style={styles.td}>{player.rsp_pos_rank}</td>
                 <td style={styles.td}>{player.rsp_2023_2025_rank}</td>
                 <td style={styles.td}>{player.rp_2021_2025_rank}</td>
@@ -191,34 +165,37 @@ function FreeAgentsPage() {
                       </button>
                   )}
                 </td>
+                <td style={styles.td}>
+                  {player.gemini_analysis && (
+                      <button 
+                          onClick={() => setModalContent({
+                              title: `${player.full_name} - AI Analysis`,
+                              body: player.gemini_analysis
+                          })}
+                          style={styles.notesButton}
+                      >
+                          View
+                      </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-        {modalContent && (
-          <Modal 
-              content={
-                  <>
-                      <h3>{modalContent.title}</h3>
-                      <div style={styles.modalBody}>{modalContent.body}</div>
-                  </>
-              } 
-              onClose={() => setModalContent(null)} 
-          />
+      {modalContent && (
+        <Modal 
+            content={
+                <>
+                    <h2 style={styles.h2}>{modalContent.title}</h2>
+                    <div style={styles.modalBody}>{modalContent.body}</div>
+                </>
+            } 
+            onClose={() => setModalContent(null)} 
+        />
       )}
     </div>
   );
 }
-
-const styles = {
-    th: { border: '1px solid #ddd', padding: '8px', textAlign: 'left' },
-    td: { border: '1px solid #ddd', padding: '8px' },
-    notesButton: { padding: '5px 10px', border: '1px solid #ccc', borderRadius: '4px', backgroundColor: '#f9f9f9', cursor: 'pointer' },
-    modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-    modalContent: { backgroundColor: 'white', padding: '20px 40px', borderRadius: '8px', maxWidth: '600px', maxHeight: '80%', overflowY: 'auto', position: 'relative' },
-    modalBody: { whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '14px', lineHeight: 1.6 },
-    closeButton: { position: 'absolute', top: '10px', right: '10px', border: 'none', background: 'transparent', fontSize: '24px', cursor: 'pointer' }
-};
 
 export default FreeAgentsPage;

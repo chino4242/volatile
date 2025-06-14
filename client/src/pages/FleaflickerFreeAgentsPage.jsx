@@ -34,6 +34,7 @@ function FleaflickerFreeAgentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [modalContent, setModalContent] = useState(null);
+  const [hoveredRow, setHoveredRow] = useState(null);
 
   const fetchData = useCallback(async (currentLeagueId) => {
     if (!currentLeagueId) {
@@ -77,38 +78,27 @@ function FleaflickerFreeAgentsPage() {
           });
         }
   
+        // --- THIS IS THE FIX ---
+        // Create a lookup map from the fresh 1-QB values we just fetched.
         const fantasyCalcValuesMap = new Map(Object.entries(fantasyCalcValues));
-  
+
         const finalFreeAgents = actualFreeAgents.map(player => {
-          const calcValueData = fantasyCalcValuesMap.get(cleanseName(player.full_name));
           const analysis = analysisDataMap.get(String(player.sleeper_id));
-  
-          return {
-            ...player,
-            trade_value: calcValueData?.value || 0,
-            age: player.age || analysis?.age || 'N/A',
-            overall_rank: analysis?.overall_rank || 'N/A',
-            positional_rank: analysis?.positional_rank || 'N/A',
-            tier: analysis?.tier || 'N/A',
-            zap_score: analysis?.zap_score || 'N/A',
-            category: analysis?.category || 'N/A',
-            comparables: analysis?.comparables || 'N/A',
-            draft_capital_delta: analysis?.draft_capital_delta || 'N/A',
-            notes_lrqb: analysis?.notes_lrqb || '',
-            rsp_pos_rank: analysis?.rsp_pos_rank || 'N/A',
-            rsp_2023_2025_rank: analysis?.rsp_2023_2025_rank || 'N/A',
-            rp_2021_2025_rank: analysis?.rp_2021_2025_rank || 'N/A',
-            comparison_spectrum: analysis?.comparison_spectrum || 'N/A',
-            depth_of_talent_score: analysis?.depth_of_talent_score || 'N/A',
-            depth_of_talent_desc: analysis?.depth_of_talent_desc || '',
-            notes_rsp: analysis?.notes_rsp || '',
+          // Look up the player in the new map to get the correct 1-QB trade value.
+          const calcValueData = fantasyCalcValuesMap.get(cleanseName(player.full_name));
+
+          return { 
+              ...player, 
+              ...analysis,
+              // Explicitly overwrite the value with the correct one from our live API call.
+              fantasy_calc_value: calcValueData?.value || 0 
           };
         });
   
         const skillPositions = ['QB', 'WR', 'RB', 'TE'];
         const filteredAndSorted = finalFreeAgents
-          .filter(p => skillPositions.includes(p.position) && p.trade_value > 0)
-          .sort((a, b) => b.trade_value - a.trade_value);
+          .filter(p => skillPositions.includes(p.position) && p.fantasy_calc_value > 0)
+          .sort((a, b) => (b.fantasy_calc_value || 0) - (a.fantasy_calc_value || 0));
         
         setEnrichedFreeAgents(filteredAndSorted);
   
@@ -124,8 +114,6 @@ function FleaflickerFreeAgentsPage() {
     fetchData(leagueId);
   }, [leagueId, fetchData]);
 
-  // Use a state for hover to dynamically change row style
-  const [hoveredRow, setHoveredRow] = useState(null);
 
   if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
   if (error) return <div style={{...styles.pageContainer, ...styles.errorText}}>Error: {error}</div>;
@@ -156,6 +144,7 @@ function FleaflickerFreeAgentsPage() {
               <th style={styles.th}>RSP 23-25</th>
               <th style={styles.th}>RP 21-25</th>
               <th style={styles.th}>Notes</th>
+              <th style={styles.th}>AI Analysis</th>
             </tr>
           </thead>
           <tbody>
@@ -170,7 +159,7 @@ function FleaflickerFreeAgentsPage() {
                 <td style={styles.td}>{player.position}</td>
                 <td style={styles.td}>{player.team || 'FA'}</td>
                 <td style={styles.td}>{player.age || 'N/A'}</td>
-                <td style={{...styles.td, ...styles.valueCell}}>{player.trade_value}</td>
+                <td style={{...styles.td, ...styles.valueCell}}>{player.fantasy_calc_value}</td>
                 <td style={styles.td}>{player.overall_rank}</td>
                 <td style={styles.td}>{player.positional_rank}</td>
                 <td style={styles.td}>{player.tier}</td>
@@ -188,6 +177,19 @@ function FleaflickerFreeAgentsPage() {
                           onClick={() => setModalContent({
                               title: `${player.full_name} - Analysis Notes`,
                               body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}`
+                          })}
+                          style={styles.notesButton}
+                      >
+                          View
+                      </button>
+                  )}
+                </td>
+                <td style={styles.td}>
+                  {player.gemini_analysis && (
+                      <button 
+                          onClick={() => setModalContent({
+                              title: `${player.full_name} - AI Analysis`,
+                              body: player.gemini_analysis
                           })}
                           style={styles.notesButton}
                       >
