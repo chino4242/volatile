@@ -1,76 +1,88 @@
-# python_analysis/api_server.py
-from flask import Flask, jsonify, request
+# python_analysis/api_server_flask.py
+from flask import Flask, jsonify, request # Import 'request' for the POST route
 from flask_cors import CORS
 import json
 import os
-import sys
 
 app = Flask(__name__)
-CORS(app) # Enable CORS for all routes
+# Enable CORS to allow requests from your React frontend
+CORS(app) 
 
-# --- Data Loading with Enhanced Logging ---
-# This is the most robust way to load data for a Flask app.
-# It happens once when the Python interpreter first imports this file.
-try:
-    current_script_dir = os.path.dirname(os.path.abspath(__file__))
-    enriched_data_path = os.path.join(current_script_dir, '..', 'server', 'data', 'enriched_players_master.json')
-    
-    print(f"--- PYTHON API: Attempting to load data from: {enriched_data_path} ---")
-    
-    with open(enriched_data_path, 'r', encoding='utf-8') as f:
-        _loaded_list = json.load(f)
-        if not isinstance(_loaded_list, list):
-            raise TypeError("Loaded JSON is not a list")
+# --- Configuration ---
+# Path to the enriched data, assuming this script is in python_analysis/
+CURRENT_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ENRICHED_DATA_PATH = os.path.join(CURRENT_SCRIPT_DIR, 'data_output', 'enriched_players_master.json')
+
+def load_data():
+    """Loads the enriched player data from the JSON file."""
+    # This function will now be called on each request, ensuring fresh data.
+    try:
+        print(f"--- PYTHON API: Attempting to load fresh data from: {ENRICHED_DATA_PATH}")
+        with open(ENRICHED_DATA_PATH, 'r', encoding='utf-8') as f:
+            enriched_player_data_list = json.load(f)
+        
+        # Create a map for quick O(1) lookups by sleeper_player_id
+        enriched_player_data_map_by_sleeper_id = {}
+        for player in enriched_player_data_list:
+            # Ensure the key exists and is not None before adding to map
+            if 'sleeper_id' in player and player['sleeper_id'] is not None:
+                enriched_player_data_map_by_sleeper_id[str(player['sleeper_id'])] = player
+        
+        print(f"--- PYTHON API: Successfully loaded and mapped {len(enriched_player_data_list)} players.")
+        return enriched_player_data_list, enriched_player_data_map_by_sleeper_id
+
+    except Exception as e:
+        print(f"FATAL: Could not load enriched player data: {e}")
+        return [], {}
             
-        # Create the lookup map directly from the loaded list
-        _player_map_for_lookup = {str(p['sleeper_id']): p for p in _loaded_list if 'sleeper_id' in p}
+# --- API Route Definitions ---
 
-    print(f"--- PYTHON API: Successfully loaded and mapped {len(_player_map_for_lookup)} players. ---")
+@app.route('/api/enriched-players', methods=['GET'])
+def get_all_players():
+    """Endpoint to get all enriched players."""
+    all_players, _ = load_data() # Load fresh data on each call
+    return jsonify(all_players)
+
+@app.route('/api/enriched-players/sleeper/<sleeper_id>', methods=['GET'])
+def get_player_by_sleeper_id(sleeper_id):
+    """Endpoint to get a single player by their Sleeper ID."""
+    print(f"--- PYTHON API DEBUG: Lookup for ID '{sleeper_id}' received.")
+    _, player_map = load_data() # Load fresh data on each call
+    player = player_map.get(str(sleeper_id)) # Ensure lookup key is a string
     
-    # Diagnostic log
-    map_keys_sample = list(_player_map_for_lookup.keys())[:5]
-    print(f"--- PYTHON API DEBUG: First 5 keys in map look like this: {map_keys_sample} ---")
+    if player:
+        print(f"--- PYTHON API DEBUG: Lookup for ID '{sleeper_id}' returned: Data Found")
+        return jsonify(player)
+    else:
+        print(f"--- PYTHON API DEBUG: Lookup for ID '{sleeper_id}' returned: 404 - Not Found")
+        return jsonify({"error": "Player not found by Sleeper ID"}), 404
 
-except Exception as e:
-    print(f"--- PYTHON API CRITICAL ERROR: Could not load data on startup. Server cannot run. Error: {e}", file=sys.stderr)
-    sys.exit(1) # Exit if critical data is missing
-
-
-# --- API Endpoints ---
 @app.route('/api/enriched-players/batch', methods=['POST'])
 def get_players_by_sleeper_ids_batch():
-    if not request.is_json:
-        return jsonify({"error": "Request must be JSON"}), 400
+    """Endpoint to get a batch of players from a list of Sleeper IDs."""
+    print(f"--- PYTHON API DEBUG: Received request to look up a batch of IDs.")
+    _, player_map = load_data() # Load fresh data on each call
+    
+    request_data = request.json
+    if not request_data or 'sleeper_ids' not in request_data:
+        return jsonify({"error": "Missing 'sleeper_ids' in request body"}), 400
         
-    sleeper_ids = request.json.get('sleeper_ids', [])
+    sleeper_ids = request_data.get('sleeper_ids', [])
     if not isinstance(sleeper_ids, list):
-        return jsonify({"error": "sleeper_ids must be a list"}), 400
+        return jsonify({"error": "'sleeper_ids' must be a list"}), 400
     
-    print(f"--- PYTHON API DEBUG: Received request to look up {len(sleeper_ids)} IDs. Sample: {sleeper_ids[:5]} ... ---")
-    
-    results = []
-    # --- FINAL DIAGNOSTIC STEP ---
-    # We will log the result of the lookup for the first 5 IDs to see what's happening.
-    for i, s_id in enumerate(sleeper_ids):
-        player_data = _player_map_for_lookup.get(str(s_id))
-        
-        if i < 5: # Log the first 5 lookups
-             print(f"--- PYTHON API DEBUG: Lookup for ID '{str(s_id)}' returned: {'Data Found' if player_data else 'Not Found'}")
+    print(f"--- PYTHON API DEBUG: Sample of IDs to look up: {sleeper_ids[:5]} ...")
 
+    results = []
+    for s_id in sleeper_ids:
+        player_data = player_map.get(str(s_id))
         if player_data:
             results.append(player_data)
         else:
-            results.append({"error": "Analysis data not found", "sleeper_id": str(s_id)})
-    
+            results.append({"sleeper_id": str(s_id), "error": "Data not found"})
+            
     return jsonify(results)
 
-# Optional: Add an endpoint to see all data for debugging
-@app.route('/api/all-players-debug', methods=['GET'])
-def get_all_players_debug():
-    # To return the list, we can get it from the map's values
-    return jsonify(list(_player_map_for_lookup.values()))
-
-# Guard the app.run() call so it doesn't run when Gunicorn is used on Render
 if __name__ == '__main__':
+    # We no longer need to load data on startup, it will happen per-request.
     app.run(port=5002, debug=True)
-

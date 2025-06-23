@@ -205,6 +205,20 @@ def main():
 
     # Step 4: Filter the final, fully-enriched list with FantasyCalc data
     print("Filtering final list with FantasyCalc data by Sleeper ID...")
+    print("\n-- DIAGNOSING MERGE KEYS ---")
+    print("--- df_enriched (from Sleeper/Excel) ---")
+    print(df_enriched[['player_cleansed_name', 'sleeper_id']].info())
+    print(df_enriched[['player_cleansed_name', 'sleeper_id']].head())
+    
+    print("\--- df_fantasy_calc (from API)---")
+    print(df_fantasy_calc.info())
+    print(df_fantasy_calc.head())
+    
+    print("\nConverting both sleeper_id columns to string type for consistency...")
+    df_enriched['sleeper_id'] = df_enriched['sleeper_id'].astype(str)
+    df_fantasy_calc['sleeper_id'] = df_fantasy_calc['sleeper_id'].astype(str)
+    
+    
     df_final_enriched = pd.merge(
         df_enriched,
         df_fantasy_calc,
