@@ -1,30 +1,42 @@
-// server/routes/fantasyCalcRoutes.js
 const express = require('express');
-const { getFantasyCalcValues } = require('../services/fantasyCalcService');
 const router = express.Router();
+const { getFantasyCalcValues } = require('../services/fantasyCalcService');
 
-// GET player trade values from FantasyCalc
-// This will be accessible at /api/values/fantasycalc
 router.get('/values/fantasycalc', async (req, res) => {
-    try {
-        // Parse query params from the URL, with defaults
-        const isDynasty = req.query.isDynasty !== 'false'; // Defaults to true
-        const numQbs = req.query.numQbs === '1' ? 1 : 2;     // Defaults to 2 (Superflex)
-        const ppr = parseFloat(req.query.ppr) || 1;         // Defaults to 1 (Full PPR)
+  // --- Start of High-Detail Logging ---
+  console.log("--- ROUTE LOG: Entering /api/values/fantasycalc route...");
 
-        console.log(`FantasyCalc route hit with params: isDynasty=${isDynasty}, numQbs=${numQbs}, ppr=${ppr}`);
+  try {
+    const isDynasty = req.query.isDynasty;
+    const numQbs = req.query.numQbs;
+    const ppr = req.query.ppr;
 
-        const playerValueMap = await getFantasyCalcValues(isDynasty, numQbs, ppr);
-        
-        // Convert the Map to a plain object because JSON doesn't have a Map type.
-        const playerValueObject = await getFantasyCalcValues(isDynasty, numQbs, ppr);
+    console.log(`--- ROUTE LOG: Params received: isDynasty=${isDynasty}, numQbs=${numQbs}, ppr=${ppr}`);
+    console.log("--- ROUTE LOG: Calling getFantasyCalcValues service...");
 
-        res.json(playerValueObject);
-    } catch (error) {
-        console.error(`Route error for /values/fantasycalc:`, error);
-        const status = error.status || 500;
-        res.status(status).json({ error: error.message || "Failed to fetch FantasyCalc values." , data: error.data });
-    }
+    // The call to the service which makes the external API call
+    const valuesObject = await getFantasyCalcValues(isDynasty, numQbs, ppr);
+
+    console.log(`--- ROUTE LOG: Service returned successfully. Object has ${Object.keys(valuesObject).length} keys.`);
+    
+    // If we get here, everything worked. Send the response.
+    res.json(valuesObject);
+
+  } catch (error) {
+    // If ANY of the above steps fail, this block will execute.
+    // This is the most important log we need to see.
+    console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    console.error("!!! CRITICAL ERROR in /values/fantasycalc route !!!");
+    console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    console.error("Error Message:", error.message);
+    console.error("Error Type:", error.name);
+    console.error("Full Error Object:", error); // Log the entire error object
+    
+    res.status(500).json({ 
+        error: 'An internal server error occurred while fetching FantasyCalc values.',
+        errorMessage: error.message 
+    });
+  }
 });
 
 module.exports = router;
