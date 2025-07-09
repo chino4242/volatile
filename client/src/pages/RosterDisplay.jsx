@@ -44,9 +44,25 @@ function RosterDisplay() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sleeper_ids: playerIds })
                 }).then(res => {
-                    if (!res.ok) throw new Error(`Python API responded with status: ${res.status}`);
-                    return res.json();
-                })
+                    console.log('Python API Response Status:', res.status);
+                    return res.clone().text().then(text => {
+                      console.log('Python API Raw Response Body:', text); // Log the raw text
+
+                      if (!res.ok) {
+                          throw new Error(`Python API responded with status: ${res.status}`);
+                      }
+
+                      // If the text body is empty, return an empty array to prevent a crash
+                      if (!text) {
+                          console.warn("Python API returned an empty response body, defaulting to [].");
+                          return [];
+                      }
+
+                      // If we get here, the response is not empty, so we can try to parse it
+                      return res.json();
+                  });
+                    })
+
             ]);
             
             // Step 3: Create efficient lookup maps for each data source using the Sleeper ID.
