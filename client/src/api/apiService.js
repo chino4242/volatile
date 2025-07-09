@@ -1,11 +1,6 @@
 // client/src/api/apiService.js
 
-// This line is the key:
-// It looks for an environment variable named REACT_APP_API_BASE_URL, which you will set on Render.
-// If it can't find it (like when you are running locally), it will fall back to using 'http://localhost:5000'.
 const REACT_APP_API_URL = process.env.REACT_APP_API_URL?.replace(/\/$/, '') || 'http://localhost:5000';
-const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
-
 
 /**
  * A robust helper function to handle fetch responses and centralize error handling.
@@ -13,78 +8,63 @@ const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://loca
  * @returns {Promise<any>} - A promise that resolves with the JSON data or rejects with a structured error.
  */
 async function handleResponse(response) {
-  // The 'ok' property checks if the status code is in the 200-299 range.
-  if (response.ok) {
-    // If the response is successful, try to parse it as JSON.
-    // Handle cases where a successful response might have no body (e.g., a 204 No Content).
-    const text = await response.text();
-    return text ? JSON.parse(text) : {}; // Return parsed JSON or an empty object
-  }
+    // --- Start of High-Detail handleResponse Logging ---
+    console.log(`--- API_SERVICE LOG: handleResponse received a response with status: ${response.status}`);
 
-  // If the response is not successful, create and throw a structured error.
-  let errorData;
-  try {
-    errorData = await response.json();
-  } catch (e) {
-    // If the error response body is not JSON, use the status text as a fallback.
-    errorData = { message: response.statusText };
-  }
+    if (response.ok) {
+        console.log(`--- API_SERVICE LOG: Response was OK (status ${response.status}). Parsing body...`);
+        const text = await response.text();
+        
+        if (text) {
+            console.log(`--- API_SERVICE LOG: Response has text body. Parsing as JSON.`);
+            return JSON.parse(text);
+        } else {
+            console.warn(`--- API_SERVICE LOG: Response was OK but had no body. Returning empty object {}.`);
+            return {};
+        }
+    }
 
-  const error = new Error(errorData.error || errorData.message || `HTTP error! Status: ${response.status}`);
-  error.status = response.status;
-  throw error;
+    // If the response is not successful, this block will run.
+    console.error(`--- API_SERVICE LOG: Response was NOT OK (status ${response.status}). Creating and throwing error.`);
+    let errorData;
+    try {
+        errorData = await response.json();
+    } catch (e) {
+        errorData = { message: `Server returned status ${response.status} but response body was not valid JSON.` };
+    }
+
+    const error = new Error(errorData.error || errorData.message);
+    error.status = response.status;
+    
+    // This throw is what should cause Promise.all to fail.
+    throw error;
 }
 
 /**
  * A generic function for making GET requests to your NODE.JS backend.
  * @param {string} endpoint - The API endpoint path (e.g., '/api/league/123').
- * @param {object} [options={}] - Optional additional fetch options.
  * @returns {Promise<any>} - The data from the API.
  */
 export async function get(endpoint, options = {}) {
-  try {
-    // Ensure endpoint starts with '/'
-    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    const url = `${REACT_APP_API_URL}${normalizedEndpoint}`;
-    
-    console.log('Making API request to:', url); // Debug log
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    });
-    return handleResponse(response);
-  } catch (error) {
-    console.error(`GET request failed:`, error);
-    throw error;
-  }
-}
-
-/**
- * A specific function for making batch POST requests to your PYTHON backend.
- * @param {string} endpoint - The API endpoint path (e.g., '/api/enriched-players/batch').
- * @param {object} body - The request body to be sent as JSON.
- * @returns {Promise<any>} - The data from the API.
- */
-export async function postToPythonApi(endpoint, body) {
     try {
-        const response = await fetch(`${PYTHON_API_BASE_URL}${endpoint}`, {
-            method: 'POST',
+        const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        const url = `${REACT_APP_API_URL}${normalizedEndpoint}`;
+        
+        console.log('Making API request to:', url);
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            ...options,
             headers: {
                 'Content-Type': 'application/json',
+                ...options.headers,
             },
-            body: JSON.stringify(body),
         });
         return handleResponse(response);
     } catch (error) {
-        console.error(`POST request to ${PYTHON_API_BASE_URL}${endpoint} failed:`, error);
+        // This will catch network-level errors (e.g., server unreachable)
+        // AND errors thrown from handleResponse.
+        console.error(`--- API_SERVICE LOG: Error in get() function's catch block:`, error);
         throw error;
     }
 }
-
-// You could also add a generic post function for your Node.js API if needed.
-// export async function postToNodeApi(endpoint, body, options = {}) { ... }
