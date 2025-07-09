@@ -5,6 +5,7 @@ import os
 import numpy as np
 import requests # Make sure to install this: pip install requests
 import re # Import the regular expressions module
+import sys
 
 # --- Configuration ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -135,21 +136,31 @@ def load_sleeper_player_data(file_path):
         print(f"Halting process: Error loading Sleeper data: {e}")
         return pd.DataFrame()
 
-def main():
-    print("--- Starting Player Data Enrichment Process ---")
+def generate_enriched_data(format_type='superflex'):
+    print(f"\n--- Starting Player Data Enrichment Process for format: {format_type.upper()} ---")
     
     # Step 1: Load all source data
     df_sleeper_players = load_sleeper_player_data(SLEEPER_PLAYERS_JSON_PATH)
     if df_sleeper_players.empty: return
 
-    df_fantasy_calc = fetch_fantasy_calc_data()
+    num_qbs = 2 if format_type == 'superflex' else 1
+    df_fantasy_calc = fetch_fantasy_calc_data(num_qbs=num_qbs)
     if df_fantasy_calc.empty:
         print("Halting process: Cannot proceed without FantasyCalc value data.")
         return
 
     ai_analysis_lookup = load_consolidated_analysis(CONSOLIDATED_ANALYSIS_PATH)
 
-    sf_rename_map = {'Overall': 'overall_rank', 'Pos. Rank': 'positional_rank', 'Tier': 'tier'}
+    dynasty_rename_map = {'Overall': 'overall_rank', 'Positional Rank': 'positional_rank', 'Tier': 'tier'}
+    
+    if format_type == '1qb':
+        dynasty_rankings_path = os.path.join(ANALYSIS_DATA_DIR, '1QB', '1QBRankings_July25.xlsx')
+        print(f"Using 1QB rankings file: {dynasty_rankings_path}")
+    else:
+        dynasty_rankings_path = os.path.join(ANALYSIS_DATA_DIR, 'superflex', 'SuperflexRankings_July25.xlsx')
+        print(f"Using SuperFlex rankings file: {dynasty_rankings_path}")
+    
+    dynasty_df_rankings = load_and_prep_excel(dynasty_rankings_path, dynasty_rename_map)
     lrqb_rename_map = {'ZAP Score': 'zap_score', 'Category': 'category', 'Comparables': 'comparables', 'Draft Capital Delta': 'draft_capital_delta', 'Notes': 'notes_lrqb'}
     rsp_rename_map = {
         'RSP Pos. Ranking': 'rsp_pos_rank', 'RSP 2023-2025 Rank': 'rsp_2023_2025_rank', 'RP 2021-2025 Rank': 'rp_2021_2025_rank',
@@ -157,8 +168,9 @@ def main():
         'Depth of Talent Description': 'depth_of_talent_desc', 'RSP Notes': 'notes_rsp'
     }
 
-    sf_rankings_path = os.path.join(ANALYSIS_DATA_DIR, 'superflex', 'SuperflexRankings_June25.xlsx')
-    df_superflex = load_and_prep_excel(sf_rankings_path, sf_rename_map)
+    
+    
+    
 
     lrqb_path = os.path.join(ANALYSIS_DATA_DIR, 'common', 'LRQB_Postdraft_Rookies.xlsx')
     df_lrqb = load_and_prep_excel(lrqb_path, lrqb_rename_map)
@@ -170,7 +182,7 @@ def main():
     print("Enriching full Sleeper list with analysis data by name...")
     df_enriched = df_sleeper_players
     analysis_dfs = {
-        'Superflex': (df_superflex, list(sf_rename_map.values())),
+        'Dynasty_Rankings': (dynasty_df_rankings, list(dynasty_rename_map.values())),
         'LRQB': (df_lrqb, list(lrqb_rename_map.values())),
         'RSP': (df_rsp, list(rsp_rename_map.values()))
     }
@@ -249,10 +261,13 @@ def main():
     
     records = df_final.to_dict(orient='records')
     
-    with open(ENRICHED_PLAYERS_OUTPUT_PATH, 'w', encoding='utf-8') as f:
+    output_path = os.path.join(SERVER_DATA_DIR, f'enriched_players_{format_type}.json')
+    
+    with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(records, f, indent=4)
         
     print(f"--- Data Consolidation Complete! Enriched data saved to: {ENRICHED_PLAYERS_OUTPUT_PATH} ---")
 
 if __name__ == '__main__':
-    main()
+    generate_enriched_data(format_type='superflex')
+    generate_enriched_data(format_type='1qb')

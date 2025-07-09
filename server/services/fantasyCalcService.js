@@ -35,30 +35,27 @@ async function getFantasyCalcValues(isDynasty = true, numQbs = 2, ppr = 1) {
         // Convert the array into a Map for O(1) lookups by cleansed name.
         const playerValueMap = new Map();
         players.forEach(playerData => {
-            const playerName = playerData?.player?.name;
-            const sleeperId = playerData?.player?.sleeperId; // Get the Sleeper ID
-            if (playerName) {
-                const cleansedName = cleanseNameJs(playerName);
-                // The value object now includes the sleeperId
-                playerValueMap.set(cleansedName, {
-                    value: playerData.value,
-                    overallRank: playerData.overallRank,
-                    positionRank: playerData.positionRank,
-                    sleeperId: sleeperId // Add the sleeperId to the map value
-                });
+            const sleeperId = playerData?.player?.sleeperId; // Get the Sleeper ID
+            if (sleeperId) {
+                playerValueMap.set(String(sleeperId), playerData);
             }
         });
 
         console.log(`Successfully mapped ${playerValueMap.size} players from FantasyCalc.`);
-        return playerValueMap;
+        const finalObject = Object.fromEntries(playerValueMap);
+        
+        const firstKey = Object.keys(finalObject)[0];
+        console.log(`Service is returning an object. Sample key: ${firstKey}, Sample Value:`, finalObject[firstKey]);
+
+        return finalObject
 
     } catch (error) {
         console.error(`Error fetching or processing FantasyCalc values:`, error.message);
         if (axios.isAxiosError(error) && error.response) {
             throw { status: error.response.status, message: `FantasyCalc API error: ${error.response.statusText}`, data: error.response.data };
         }
-        throw { status: 500, message: error.message || "An unexpected error occurred while fetching FantasyCalc values." };
-    }
+        throw { status: 500, message: error.message || "An unexpected error occurred while fetching FantasyCalc values." };
+    }
 }
 
 module.exports = { getFantasyCalcValues, cleanseNameJs };

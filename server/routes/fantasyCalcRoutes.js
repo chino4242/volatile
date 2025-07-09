@@ -17,7 +17,7 @@ router.get('/values/fantasycalc', async (req, res) => {
         const playerValueMap = await getFantasyCalcValues(isDynasty, numQbs, ppr);
         
         // Convert the Map to a plain object because JSON doesn't have a Map type.
-        const playerValueObject = Object.fromEntries(playerValueMap);
+        const playerValueObject = await getFantasyCalcValues(isDynasty, numQbs, ppr);
 
         res.json(playerValueObject);
     } catch (error) {
