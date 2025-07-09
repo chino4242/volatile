@@ -1,178 +1,201 @@
-// client/src/pages/RosterDisplay.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { get } from '../api/apiService'; // Using your service for the Node.js API
+import { get } from '../api/apiService';
+import { styles } from '../styles'; // Import the centralized styles object
 
-// Define the base URL for your Python Analysis API from environment variables
 const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
 
 function RosterDisplay() {
-  const { leagueId, rosterId } = useParams();
-  
-  const [enrichedRoster, setEnrichedRoster] = useState([]);
-  const [managerName, setManagerName] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+    const { leagueId, rosterId } = useParams();
+    
+    const [enrichedRoster, setEnrichedRoster] = useState([]);
+    const [mismatchedPlayers, setMismatchedPlayers] = useState([]);
+    const [managerName, setManagerName] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [hoveredRow, setHoveredRow] = useState(null); // Add state for hover effect
 
-  // Helper function to cleanse names for matching with FantasyCalc data
-  const cleanseName = (name) => (typeof name === 'string' ? name.replace(/[^\w\s']+/g, '').replace(/\s+/g, ' ').trim().toLowerCase() : '');
-
-  const fetchData = useCallback(async (currentLeagueId, currentRosterId) => {
-    if (!currentLeagueId || !currentRosterId) {
-      setError("League ID and Roster ID are required.");
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      // Step 1: Fetch the basic roster data from your Node.js API first.
-      const rosterData = await get(`/api/sleeper/league/${currentLeagueId}/roster/${currentRosterId}`);
-      console.log("--- STEP 1: Basic Roster Data from Node.js ---", rosterData);
-      
-      setManagerName(rosterData.manager_display_name || 'Unknown Owner');
-      const playerIds = rosterData.players.map(p => p.player_id);
-
-      // --- Step 2: Fetch both supplemental data sources concurrently ---
-      let analysisDataMap = new Map();
-
-      if (playerIds.length > 0) {
-        const [calcValuesResponse, analysisPlayersResponse] = await Promise.all([
-          // Source A: Trade values from FantasyCalc via your Node.js API
-          get(`/api/values/fantasycalc?isDynasty=true&numQbs=2&ppr=0.5`),
-          
-          // Source B: Deep analysis from your Python API
-          fetch(`${PYTHON_API_BASE_URL}/api/enriched-players/batch`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ sleeper_ids: playerIds })
-          }).then(res => {
-              if (!res.ok) throw new Error(`Python API responded with status: ${res.status}`);
-              return res.json();
-          })
-        ]);
-        
-        console.log("--- STEP 2a: Raw FantasyCalc Response from Node.js API ---", calcValuesResponse);
-
-        // Process Python API response
-        console.log("--- STEP 2b: Raw Analysis from Python API ---", analysisPlayersResponse);
-        analysisPlayersResponse.forEach(player => {
-            if (player && player.sleeper_id && !player.error) {
-                analysisDataMap.set(String(player.sleeper_id), player);
-            }
-        });
-        console.log("--- STEP 2c: Constructed Analysis Map ---", analysisDataMap);
-
-        // --- THIS IS THE FINAL FIX ---
-        // Create a lookup map for FantasyCalc values.
-        // The API returns an object, so we iterate over its [key, value] pairs.
-        const fantasyCalcMap = new Map();
-        if (calcValuesResponse && typeof calcValuesResponse === 'object') {
-          // Object.entries() gives us an array of [key, value] pairs.
-          // e.g., [ ["josh allen", { value: 7778, ... }], ["jayden daniels", { value: 6522, ... }] ]
-          Object.entries(calcValuesResponse).forEach(([cleansedNameKey, playerData]) => {
-              // The key is already the cleansed name, so we use it directly.
-              // We just need to check that the player data object has a value.
-              if (playerData && typeof playerData.value !== 'undefined') {
-                fantasyCalcMap.set(cleansedNameKey, playerData.value);
-              }
-          });
-        } else {
-            console.warn("FantasyCalc response was not a valid object.");
+    const fetchData = useCallback(async (currentLeagueId, currentRosterId) => {
+        if (!currentLeagueId || !currentRosterId) {
+            setError("League ID and Roster ID are required.");
+            setLoading(false);
+            return;
         }
-        console.log("--- STEP 3: Constructed FantasyCalc Map ---", fantasyCalcMap);
-        // --- END OF FIX ---
+
+        setLoading(true);
+        setError(null);
+        try {
+            // Step 1: Fetch the basic roster data. This gives us the list of player IDs.
+            const rosterData = await get(`/api/sleeper/league/${currentLeagueId}/roster/${currentRosterId}`);
+            setManagerName(rosterData.manager_display_name || 'Unknown Owner');
+            const playerIds = rosterData.players.map(p => p.player_id);
+
+            if (playerIds.length === 0) {
+                setEnrichedRoster([]);
+                setLoading(false);
+                return;
+            }
+
+            // Step 2: Fetch both supplemental data sources concurrently.
+            const [fantasyCalcDataById, analysisPlayersResponse] = await Promise.all([
+                get(`/api/values/fantasycalc?isDynasty=true&numQbs=2&ppr=0.5`),
+                fetch(`${PYTHON_API_BASE_URL}/api/enriched-players/batch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sleeper_ids: playerIds })
+                }).then(res => {
+                    if (!res.ok) throw new Error(`Python API responded with status: ${res.status}`);
+                    return res.json();
+                })
+            ]);
+            
+            // Step 3: Create efficient lookup maps for each data source using the Sleeper ID.
+            const fantasyCalcMap = new Map(Object.entries(fantasyCalcDataById));
+            
+            const analysisDataMap = new Map();
+            analysisPlayersResponse.forEach(player => {
+                if (player && player.sleeper_id && !player.error) {
+                    analysisDataMap.set(String(player.sleeper_id), player);
+                }
+            });
+
+            // Step 4: Enrich the player list by merging all data sources.
+            const finalRoster = [];
+            const mismatches = [];
+
+            for (const player of rosterData.players) {
+                const playerId = String(player.player_id);
+                const analysisData = analysisDataMap.get(playerId);
+                const fantasyCalcData = fantasyCalcMap.get(playerId);
+                
+                const enrichedPlayer = {
+                    ...player,
+                    ...analysisData,
+                    ...fantasyCalcData,
+                    trade_value: fantasyCalcData?.value || 0,
+                    age: fantasyCalcData?.player?.maybeAge || analysisData?.age || player.age,
+                    tier: fantasyCalcData?.maybeTier || analysisData?.tier || 'N/A',
+                };
+                finalRoster.push(enrichedPlayer);
+                
+                if (!analysisData || !fantasyCalcData) {
+                    mismatches.push({
+                        name: player.full_name,
+                        sleeperId: playerId,
+                        foundInAnalysis: !!analysisData,
+                        foundInValues: !!fantasyCalcData,
+                    });
+                }
+            }
+
+            // Step 5: Sort the final roster and set state.
+            finalRoster.sort((a, b) => (b.trade_value || 0) - (a.trade_value || 0));
+            setEnrichedRoster(finalRoster);
+            setMismatchedPlayers(mismatches);
+
+        } catch (e) {
+            console.error("Failed to fetch page data:", e);
+            setError(e.message || "An unknown error occurred while fetching data.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData(leagueId, rosterId);
+    }, [leagueId, rosterId, fetchData]);
 
 
-        // Step 4: Enrich the player list with all data sources
-        const finalRoster = rosterData.players.map(player => {
-          const analysis = analysisDataMap.get(String(player.player_id));
-          // Look up trade value using the cleansed player name
-          const tradeValue = fantasyCalcMap.get(cleanseName(player.full_name)) || 0;
-          
-          return {
-            ...player, // Basic info from Sleeper
-            age: player.age || (analysis ? analysis.age : 'N/A'),
-            overall_rank: analysis ? (analysis.overall_rank || 'N/A') : 'N/A',
-            positional_rank: analysis ? (analysis.positional_rank || 'N/A') : 'N/A',
-            tier: analysis ? (analysis.tier || 'N/A') : 'N/A',
-            trade_value: tradeValue, // Add the trade value here
-          };
-        });
-
-        // Step 5: Sort the final roster by trade value (descending)
-        finalRoster.sort((a, b) => b.trade_value - a.trade_value);
-        
-        setEnrichedRoster(finalRoster);
-      } else {
-        // Handle case where roster has no players
-        setEnrichedRoster([]);
-      }
-
-    } catch (e) {
-      console.error("Failed to fetch page data:", e);
-      setError(e.message || "An unknown error occurred while fetching data.");
-    } finally {
-      setLoading(false);
+    if (loading) {
+        return <div style={styles.pageContainer}>Loading roster and analysis...</div>;
     }
-  }, []);
 
-  useEffect(() => {
-    fetchData(leagueId, rosterId);
-  }, [leagueId, rosterId, fetchData]);
+    if (error) {
+        return <div style={{...styles.pageContainer, ...styles.errorText}}>Error: {error}</div>;
+    }
 
+    return (
+        <div style={styles.pageContainer}>
+            <h1 style={styles.h1}>
+                Manager: {managerName} (Roster ID: {rosterId})
+            </h1>
+            <p style={styles.p}>Players sorted by FantasyCalc Dynasty Superflex Value (0.5 PPR).</p>
+            
+            {enrichedRoster.length > 0 ? (
+                <div style={styles.tableContainer}>
+                    <table style={styles.table}>
+                        <thead>
+                            <tr>
+                                <th style={styles.th}>Full Name</th>
+                                <th style={styles.th}>Position</th>
+                                <th style={styles.th}>Team</th>
+                                <th style={styles.th}>Age</th>
+                                <th style={styles.th}>Trade Value</th>
+                                <th style={styles.th}>Overall Rank</th>
+                                <th style={styles.th}>Pos. Rank</th>
+                                <th style={styles.th}>Tier</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {enrichedRoster.map((player) => (
+                                <tr 
+                                    key={player.player_id}
+                                    onMouseEnter={() => setHoveredRow(player.player_id)}
+                                    onMouseLeave={() => setHoveredRow(null)}
+                                    style={hoveredRow === player.player_id ? styles.trHover : {}}
+                                >
+                                    <td style={styles.td}>{player.full_name || 'N/A'}</td>
+                                    <td style={styles.td}>{player.position || 'N/A'}</td>
+                                    <td style={styles.td}>{player.team || 'N/A'}</td>
+                                    <td style={styles.td}>{Math.floor(player.age) || 'N/A'}</td>
+                                    <td style={{...styles.td, ...styles.valueCell}}><strong>{player.trade_value}</strong></td>
+                                    <td style={styles.td}>{player.overallRank || player.overall_rank || 'N/A'}</td>
+                                    <td style={styles.td}>{player.positionRank || player.positional_rank || 'N/A'}</td>
+                                    <td style={styles.td}>{player.tier || 'N/A'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <p style={styles.p}>No players found on this roster.</p>
+            )}
 
-  if (loading) {
-    return <div style={{ padding: '20px' }}>Loading roster and analysis...</div>;
-  }
+            {mismatchedPlayers.length > 0 && (
+                <div style={{marginTop: '40px'}}>
+                    <h2 style={styles.h1}>Mismatch Report</h2>
+                    <p style={styles.p}>These players were found on the roster but were missing from a supplemental data source.</p>
+                    <table style={styles.table}>
+                        <thead>
+                            <tr>
+                                <th style={styles.th}>Roster Name</th>
+                                <th style={styles.th}>Sleeper ID</th>
+                                <th style={styles.th}>Found Analysis?</th>
+                                <th style={styles.th}>Found Trade Value?</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {mismatchedPlayers.map((p) => (
+                                <tr key={p.sleeperId}>
+                                    <td style={styles.td}>{p.name}</td>
+                                    <td style={styles.td}>{p.sleeperId}</td>
+                                    <td style={styles.td}>{p.foundInAnalysis ? '✅' : '❌'}</td>
+                                    <td style={styles.td}>{p.foundInValues ? '✅' : '❌'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
-  if (error) {
-    return <div style={{ padding: '20px', color: 'red' }}>Error: {error}</div>;
-  }
-
-  // --- Rendering logic now includes the Trade Value column ---
-  return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      <h2>
-        Manager: {managerName} (Roster ID: {rosterId})
-      </h2>
-      <p>Players sorted by FantasyCalc Dynasty Superflex Value (0.5 PPR).</p>
-      
-      {enrichedRoster.length > 0 ? (
-        <table style={{ borderCollapse: 'collapse', width: '100%', maxWidth: '1200px' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#f0f0f0' }}>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Full Name</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Position</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Team</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Age</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Trade Value</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Overall Rank</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Pos. Rank</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Tier</th>
-            </tr>
-          </thead>
-          <tbody>
-            {enrichedRoster.map((player) => (
-              <tr key={player.player_id}>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.full_name || 'N/A'}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.position || 'N/A'}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.team || 'N/A'}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.age || 'N/A'}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}><strong>{player.trade_value}</strong></td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.overall_rank}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.positional_rank}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.tier}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>No players found on this roster.</p>
-      )}
-    </div>
-  );
+            <div style={{marginTop: '40px'}}>
+                <h2 style={styles.h1}>Raw Enriched Roster Data (X-Ray View)</h2>
+                <pre style={styles.pre}>
+                    {JSON.stringify(enrichedRoster, null, 2)}
+                </pre>
+            </div>
+        </div>
+    );
 }
 
 export default RosterDisplay;
