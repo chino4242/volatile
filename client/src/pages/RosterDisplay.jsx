@@ -16,106 +16,85 @@ function RosterDisplay() {
     const [hoveredRow, setHoveredRow] = useState(null); // Add state for hover effect
 
     const fetchData = useCallback(async (currentLeagueId, currentRosterId) => {
-        if (!currentLeagueId || !currentRosterId) {
-            setError("League ID and Roster ID are required.");
+    // --- Start of High-Detail Frontend Logging ---
+
+    console.log("--- FRONTEND LOG 1: Starting fetchData function...");
+
+    if (!currentLeagueId || !currentRosterId) {
+        console.error("--- FRONTEND LOG: Exiting because leagueId or rosterId is missing.");
+        setError("League ID and Roster ID are required.");
+        setLoading(false);
+        return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+        console.log(`--- FRONTEND LOG 2: Calling get() for roster data for league ${currentLeagueId}, roster ${currentRosterId}...`);
+        const rosterData = await get(`/api/sleeper/league/${currentLeagueId}/roster/${currentRosterId}`);
+        
+        console.log("--- FRONTEND LOG 3: Roster data received:", rosterData);
+
+        if (!rosterData || !Array.isArray(rosterData.players)) {
+            throw new Error("Roster data is invalid or does not contain a players array.");
+        }
+
+        setManagerName(rosterData.manager_display_name || 'Unknown Owner');
+        const playerIds = rosterData.players.map(p => p.player_id);
+
+        console.log(`--- FRONTEND LOG 4: Extracted ${playerIds.length} playerIds. Sample:`, playerIds.slice(0, 5));
+
+        if (playerIds.length === 0) {
+            console.warn("--- FRONTEND LOG: No players found on roster. Exiting before Promise.all.");
+            setEnrichedRoster([]);
             setLoading(false);
             return;
         }
 
-        setLoading(true);
-        setError(null);
-        try {
-            // Step 1: Fetch the basic roster data. This gives us the list of player IDs.
-            const rosterData = await get(`/api/sleeper/league/${currentLeagueId}/roster/${currentRosterId}`);
-            setManagerName(rosterData.manager_display_name || 'Unknown Owner');
-            const playerIds = rosterData.players.map(p => p.player_id);
+        console.log("--- FRONTEND LOG 5: About to execute Promise.all to fetch supplemental data...");
+        
+        const [fantasyCalcDataById, analysisPlayersResponse] = await Promise.all([
+            get(`/api/values/fantasycalc?isDynasty=true&numQbs=2&ppr=0.5`),
+            fetch(`${PYTHON_API_BASE_URL}/api/enriched-players/batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sleeper_ids: playerIds })
+            }).then(res => res.json())
+        ]);
+        
+        console.log("--- FRONTEND LOG 6: Promise.all completed successfully.");
 
-            if (playerIds.length === 0) {
-                setEnrichedRoster([]);
-                setLoading(false);
-                return;
+        // ... rest of your logic to process and set state ...
+        const fantasyCalcMap = new Map(Object.entries(fantasyCalcDataById));
+        const analysisDataMap = new Map();
+        analysisPlayersResponse.forEach(player => {
+            if (player && player.sleeper_id && !player.error) {
+                analysisDataMap.set(String(player.sleeper_id), player);
             }
+        });
 
-            // Step 2: Fetch both supplemental data sources concurrently.
-            const [fantasyCalcDataById, analysisPlayersResponse] = await Promise.all([
-                get(`/api/values/fantasycalc?isDynasty=true&numQbs=2&ppr=0.5`),
-                fetch(`${PYTHON_API_BASE_URL}/api/enriched-players/batch`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sleeper_ids: playerIds })
-                }).then(res => {
-                    console.log('Python API Response Status:', res.status);
-                    return res.clone().text().then(text => {
-                      console.log('Python API Raw Response Body:', text); // Log the raw text
+        const finalRoster = rosterData.players.map(player => {
+             const playerId = String(player.player_id);
+             const analysisData = analysisDataMap.get(playerId);
+             const fantasyCalcData = fantasyCalcMap.get(playerId);
+             return { ...player, ...analysisData, ...fantasyCalcData, trade_value: fantasyCalcData?.value || 0 };
+        });
 
-                      if (!res.ok) {
-                          throw new Error(`Python API responded with status: ${res.status}`);
-                      }
+        finalRoster.sort((a, b) => (b.trade_value || 0) - (a.trade_value || 0));
+        setEnrichedRoster(finalRoster);
+        // We removed the mismatch report logic for this test to simplify
 
-                      // If the text body is empty, return an empty array to prevent a crash
-                      if (!text) {
-                          console.warn("Python API returned an empty response body, defaulting to [].");
-                          return [];
-                      }
-
-                      // If we get here, the response is not empty, so we can try to parse it
-                      return res.json();
-                  });
-                    })
-
-            ]);
-            
-            // Step 3: Create efficient lookup maps for each data source using the Sleeper ID.
-            const fantasyCalcMap = new Map(Object.entries(fantasyCalcDataById));
-            
-            const analysisDataMap = new Map();
-            analysisPlayersResponse.forEach(player => {
-                if (player && player.sleeper_id && !player.error) {
-                    analysisDataMap.set(String(player.sleeper_id), player);
-                }
-            });
-
-            // Step 4: Enrich the player list by merging all data sources.
-            const finalRoster = [];
-            const mismatches = [];
-
-            for (const player of rosterData.players) {
-                const playerId = String(player.player_id);
-                const analysisData = analysisDataMap.get(playerId);
-                const fantasyCalcData = fantasyCalcMap.get(playerId);
-                
-                const enrichedPlayer = {
-                    ...player,
-                    ...analysisData,
-                    ...fantasyCalcData,
-                    trade_value: fantasyCalcData?.value || 0,
-                    age: fantasyCalcData?.player?.maybeAge || analysisData?.age || player.age,
-                    tier: fantasyCalcData?.maybeTier || analysisData?.tier || 'N/A',
-                };
-                finalRoster.push(enrichedPlayer);
-                
-                if (!analysisData || !fantasyCalcData) {
-                    mismatches.push({
-                        name: player.full_name,
-                        sleeperId: playerId,
-                        foundInAnalysis: !!analysisData,
-                        foundInValues: !!fantasyCalcData,
-                    });
-                }
-            }
-
-            // Step 5: Sort the final roster and set state.
-            finalRoster.sort((a, b) => (b.trade_value || 0) - (a.trade_value || 0));
-            setEnrichedRoster(finalRoster);
-            setMismatchedPlayers(mismatches);
-
-        } catch (e) {
-            console.error("Failed to fetch page data:", e);
-            setError(e.message || "An unknown error occurred while fetching data.");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    } catch (e) {
+        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        console.error("!!! CRITICAL FRONTEND ERROR in fetchData try...catch block !!!");
+        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        console.error(e);
+        setError(e.message || "An unknown error occurred while fetching data.");
+    } finally {
+        console.log("--- FRONTEND LOG 7: fetchData function finished.");
+        setLoading(false);
+    }
+}, []);
 
     useEffect(() => {
         fetchData(leagueId, rosterId);
