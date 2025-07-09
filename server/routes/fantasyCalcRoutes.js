@@ -33,7 +33,7 @@ router.get('/values/fantasycalc', async (req, res) => {
     console.error("Full Error Object:", error); // Log the entire error object
     
     res.status(500).json({ 
-        error: 'An internal server error occurred while fetching FantasyCalc values.',
+        error: 'An internal server error occurred while fetching  FantasyCalc values.',
         errorMessage: error.message 
     });
   }
