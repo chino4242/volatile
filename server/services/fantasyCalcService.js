@@ -24,38 +24,39 @@ async function getFantasyCalcValues(isDynasty = true, numQbs = 2, ppr = 1) {
     const url = `https://api.fantasycalc.com/values/current?isDynasty=${isDynasty}&numQbs=${numQbs}&ppr=${ppr}&numTeams=12`;
     console.log(`Fetching player values from FantasyCalc: ${url}`);
 
-    try {
-        const response = await axios.get(url);
-        const players = response.data;
+try {
+        const url = `https://api.fantasycalc.com/values/current?isDynasty=${isDynasty}&numQbs=${numQbs}&ppr=${ppr}&numTeams=12`;
+        console.log(`Fetching player values from FantasyCalc: ${url}`);
 
-        if (!Array.isArray(players)) {
-            throw new Error("FantasyCalc API did not return a valid array of players.");
-        }
+        // This is the external call that is likely failing in production
+        const response = await axios.get(url, { timeout: 10000 }); // Added a 10-second timeout
 
-        // Convert the array into a Map for O(1) lookups by cleansed name.
-        const playerValueMap = new Map();
-        players.forEach(playerData => {
-            const sleeperId = playerData?.player?.sleeperId; // Get the Sleeper ID
-            if (sleeperId) {
-                playerValueMap.set(String(sleeperId), playerData);
-            }
-        });
+        const players = response.data;
+        if (!Array.isArray(players)) {
+            throw new Error("FantasyCalc API did not return a valid array of players.");
+        }
 
-        console.log(`Successfully mapped ${playerValueMap.size} players from FantasyCalc.`);
-        const finalObject = Object.fromEntries(playerValueMap);
+        const playerValueMap = new Map();
+        players.forEach(playerData => {
+            const sleeperId = playerData?.player?.sleeperId;
+            if (sleeperId) {
+                playerValueMap.set(String(sleeperId), playerData);
+            }
+        });
+
+        console.log(`Successfully mapped ${playerValueMap.size} players from FantasyCalc.`);
+        return Object.fromEntries(playerValueMap);
+
+    } catch (error) {
+        // --- THIS IS THE CRITICAL CHANGE ---
+        // This block will now execute on a timeout or other network error.
+        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        console.error("!!! AXIOS/SERVICE-LEVEL ERROR in fantasyCalcService.js !!!");
+        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        console.error("Full Axios Error:", error.isAxiosError ? error.toJSON() : error);
         
-        const firstKey = Object.keys(finalObject)[0];
-        console.log(`Service is returning an object. Sample key: ${firstKey}, Sample Value:`, finalObject[firstKey]);
-
-        return finalObject
-
-    } catch (error) {
-        console.error(`Error fetching or processing FantasyCalc values:`, error.message);
-        if (axios.isAxiosError(error) && error.response) {
-            throw { status: error.response.status, message: `FantasyCalc API error: ${error.response.statusText}`, data: error.response.data };
-        }
-        throw { status: 500, message: error.message || "An unexpected error occurred while fetching FantasyCalc values." };
+        // IMPORTANT: Re-throw the error so the route handler's catch block is triggered.
+        throw new Error(`Failed to fetch from external FantasyCalc API: ${error.message}`);
     }
-}
 
 module.exports = { getFantasyCalcValues, cleanseNameJs };
