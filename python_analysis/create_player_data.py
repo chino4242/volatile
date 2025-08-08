@@ -3,8 +3,8 @@ import json
 import pandas as pd
 import os
 import numpy as np
-import requests # Make sure to install this: pip install requests
-import re # Import the regular expressions module
+import requests
+import re
 
 # --- Configuration ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -95,9 +95,11 @@ def load_sleeper_player_data(file_path):
         return pd.DataFrame()
 
 def main():
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', 1000)
+    
     print("--- Starting Player Data Enrichment Process ---")
     
-    # Step 1: Load all source data
     df_sleeper_players = load_sleeper_player_data(SLEEPER_PLAYERS_JSON_PATH)
     if df_sleeper_players.empty: return
 
@@ -125,7 +127,7 @@ def main():
     df_dynasty_1qb = load_and_prep_excel(os.path.join(ANALYSIS_DATA_DIR, '1QB', '1QBRankings_August25.xlsx'), qb_dynasty_rename_map)
     df_sf_redraft = load_and_prep_excel(os.path.join(ANALYSIS_DATA_DIR, 'superflex', 'RedraftSFlex_August1_25.xlsx'), sf_redraft_rename_map)
     
-    # Step 2: Enrich the complete Sleeper list with Excel data
+    # --- A clean, sequential merge process ---
     print("\nEnriching full Sleeper list with analysis data by name...")
     df_enriched = df_sleeper_players.copy()
     
@@ -134,23 +136,18 @@ def main():
         df_1qb_redraft, df_lrqb, df_rsp
     ]
     
-    # --- THIS IS THE CORRECTED MERGE LOGIC ---
-    # It merges each analysis DataFrame one by one. Because we pre-renamed the columns,
-    # there will be no conflicts, and no data will be lost.
     for df_analysis in analysis_dfs_to_merge:
         if not df_analysis.empty:
-            # We only need to bring in the new columns, as player_name_original is already there
-            cols_to_merge = [col for col in df_analysis.columns if col != 'player_name_original']
+            # Identify the columns to merge: the cleansed name + all other columns except the original name
+            cols_to_merge = ['player_cleansed_name'] + [col for col in df_analysis.columns if col not in ['player_name_original']]
             df_enriched = pd.merge(df_enriched, df_analysis[cols_to_merge], on='player_cleansed_name', how='left')
 
     print("Initial Excel enrichment complete.")
 
-    # Step 3: Add the consolidated AI analysis
     if ai_analysis_lookup:
         print("--- Adding AI analysis to the master list... ---")
         df_enriched['gemini_analysis'] = df_enriched['player_cleansed_name'].map(ai_analysis_lookup)
         
-    # Step 4: Final merge with FantasyCalc data
     print("Merging final list with FantasyCalc data by Sleeper ID...")
     df_enriched['sleeper_id'] = df_enriched['sleeper_id'].astype(str)
     if not df_fantasy_calc.empty:
@@ -158,11 +155,11 @@ def main():
         df_final_enriched = pd.merge(df_enriched, df_fantasy_calc, on='sleeper_id', how='left')
     else:
         df_final_enriched = df_enriched
-        df_final_enriched['fantasy_calc_value'] = None # Add column if it doesn't exist
+        df_final_enriched['fantasy_calc_value'] = None 
     
     print(f"Final merge complete. Master list contains {len(df_final_enriched)} players.")
 
-    # Step 5: Final cleanup and save
+    # Final cleanup and save
     df_final_enriched = df_final_enriched.astype(object).replace({np.nan: None})
     records = df_final_enriched.to_dict(orient='records')
     

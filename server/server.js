@@ -1,13 +1,13 @@
 // server/server.js
 
-// Keep these error handlers at the top
+// Keep these process-level error handlers at the top
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('SERVER CRITICAL ERROR: Unhandled Rejection at:', promise, 'reason:', reason);
-    process.exit(1);
+    console.error('SERVER CRITICAL ERROR: Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
 });
 process.on('uncaughtException', (error) => {
-    console.error('SERVER CRITICAL ERROR: Uncaught Exception:', error);
-    process.exit(1);
+    console.error('SERVER CRITICAL ERROR: Uncaught Exception:', error);
+    process.exit(1);
 });
 
 const express = require('express');
@@ -23,162 +23,125 @@ const fleaflickerRoutes = require('./routes/fleaflickerRosterRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Update the request logging middleware
+// --- Middleware ---
+
+// Request logging
 app.use((req, res, next) => {
-  const requestLog = {
-    timestamp: new Date().toISOString(),
-    method: req.method,
-    url: req.url,
-    path: req.path,
-    baseUrl: req.baseUrl,
-    originalUrl: req.originalUrl,
-    params: req.params,
-    query: req.query,
-    headers: {
-      origin: req.headers.origin,
-      host: req.headers.host,
-      'user-agent': req.headers['user-agent']
-    }
-  };
-  
-  console.log('Incoming Request:', JSON.stringify(requestLog, null, 2));
-  next();
+    const requestLog = {
+        timestamp: new Date().toISOString(),
+        method: req.method,
+        url: req.originalUrl,
+        headers: {
+            origin: req.headers.origin,
+            host: req.headers.host,
+            'user-agent': req.headers['user-agent']
+        }
+    };
+    console.log('Incoming Request:', JSON.stringify(requestLog, null, 2));
+    next();
 });
 
-// Update your CORS options to be more permissive during debugging
+// CORS configuration
 const corsOptions = {
-  origin: '*', // Warning: Change this back to your specific domains after debugging
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  optionsSuccessStatus: 204
+    origin: '*', // Be sure to restrict this in production
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    optionsSuccessStatus: 204
 };
+app.use(cors(corsOptions));
+app.use(express.json());
 
-app.use(cors(corsOptions)); // Enable CORS
-app.use(express.json()); // Parse JSON bodies
+// --- API Routes ---
 
-// --- Root route to handle health checks from Render ---
+// Health check route
 app.get('/', (req, res) => {
-    res.status(200).json({ status: 'ok', message: 'API is healthy and ready to serve requests.' });
+    res.status(200).json({ status: 'ok', message: 'API is healthy.' });
 });
 
-// --- 2. Use all imported routes with platform-specific prefixes ---
+// Use all imported routes with platform-specific prefixes
 app.use('/api/sleeper', [sleeperRosterRoutes, sleeperFreeAgentRoutes, sleeperLeagueRoutes]);
-app.use('/api/fleaflicker', fleaflickerRoutes); 
-app.use('/api', fantasyCalcRoutes); 
+app.use('/api/fleaflicker', fleaflickerRoutes);
+app.use('/api', fantasyCalcRoutes);
 
-// Simple test route
-app.get('/api/hello', (req, res) => {
-    res.json({ message: 'Welcome to the brains behind Volatile Creative - API Speaking!' });
+// --- Error Handling ---
+
+// **FIXED**: More robust 404 handler that won't crash
+app.use((req, res, next) => {
+    const registeredRoutes = app._router.stack
+        .map(layer => {
+            if (layer.route) {
+                return {
+                    path: layer.route.path,
+                    method: Object.keys(layer.route.methods)[0].toUpperCase()
+                };
+            } else if (layer.name === 'router' && layer.handle.stack) {
+                // This handles nested routers used with app.use()
+                return layer.handle.stack
+                    .filter(subLayer => subLayer.route) // Ensure the sub-layer has a route object
+                    .map(subLayer => ({
+                        // Construct the full path for the nested route
+                        path: layer.regexp.source.replace('\\/?(?=\\/|$)', '').replace('^\\', '') + subLayer.route.path,
+                        method: Object.keys(subLayer.route.methods)[0].toUpperCase()
+                    }));
+            }
+        })
+        .flat() // Flatten the array of nested routes
+        .filter(Boolean); // Remove any undefined/null entries
+
+    const error = {
+        status: 404,
+        message: 'Route not found. The requested URL did not match any routes.',
+        request: {
+            method: req.method,
+            url: req.originalUrl
+        },
+        registeredRoutes: registeredRoutes
+    };
+
+    console.error('404 Error Details:', JSON.stringify(error, null, 2));
+    res.status(404).json(error);
 });
 
-// Add this near your other routes
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
 
-// Add a test route specifically for the managers endpoint
-app.get('/api/test/managers', (req, res) => {
-  res.json({ status: 'Managers endpoint reachable' });
-});
-
-// Add this before your other routes
-app.get('/api/debug/routes', (req, res) => {
-  const routes = app._router.stack
-    .filter(r => r.route || (r.name === 'router' && r.handle.stack))
-    .map(r => {
-      if (r.route) {
-        return { path: r.route.path, method: Object.keys(r.route.methods)[0] };
-      }
-      return {
-        name: r.name,
-        regexp: r.regexp.toString(),
-        path: r.handle.stack
-          .filter(s => s.route)
-          .map(s => s.route.path)
-      };
-    });
-    
-  res.json({ routes });
-});
-
-// Update the 404 handler to show more routing information
-app.use((req, res) => {
-  const routes = app._router.stack
-    .filter(r => r.route || (r.name === 'router' && r.handle.stack))
-    .map(r => {
-      if (r.route) {
-        return { path: r.route.path, method: Object.keys(r.route.methods)[0] };
-      }
-      return {
-        name: r.name,
-        regexp: r.regexp.toString(),
-        path: r.handle.stack
-          .filter(s => s.route)
-          .map(s => s.route.path)
-      };
-    });
-
-  const error = {
-    status: 404,
-    message: 'Route not found',
-    request: {
-      method: req.method,
-      url: req.url,
-      path: req.path,
-      baseUrl: req.baseUrl,
-      originalUrl: req.originalUrl,
-      params: req.params
-    },
-    registeredRoutes: routes
-  };
-  
-  console.log('404 Error Details:', JSON.stringify(error, null, 2));
-  res.status(404).json(error);
-});
-
-// Update the final error handler to be more robust
+// **FIXED**: Robust final error handler
 app.use((err, req, res, next) => {
-  const errorResponse = {
-    status: err?.status || 500,
-    message: process.env.NODE_ENV === 'production' 
-      ? 'An internal server error occurred.' 
-      : err?.message || 'An unknown error occurred.',
-    path: req.path,
-    method: req.method
-  };
-  
-  console.error('Error Details:', {
-    ...errorResponse,
-    stack: err?.stack || 'No stack trace available for this error.'
-  });
-  
-  res.status(errorResponse.status).json(errorResponse);
+    const status = typeof err.status === 'number' ? err.status : 500;
+
+    const errorResponse = {
+        status: status,
+        message: err.message || 'An internal server error occurred.',
+        path: req.originalUrl,
+        method: req.method,
+        // Only include stack in non-production environments
+        stack: process.env.NODE_ENV !== 'production' ? err.stack : undefined
+    };
+
+    console.error('Final Error Handler Caught:', JSON.stringify(errorResponse, null, 2));
+
+    res.status(status).json(errorResponse);
 });
 
-// Start the server
+
+// --- Server Startup ---
 const serverInstance = app.listen(PORT, () => {
-    console.log(`Server is running and listening on http://localhost:${PORT}`);
-    console.log('Press Ctrl+C to stop the server.');
+    console.log(`Server is running and listening on http://localhost:${PORT}`);
+    console.log('Press Ctrl+C to stop the server.');
 });
 
-// Error handling for the server instance
 serverInstance.on('error', (error) => {
-    if (error.syscall !== 'listen') {
-        throw error;
-    }
-    const bind = typeof PORT === 'string' ? 'Pipe ' + PORT : 'Port ' + PORT;
-    switch (error.code) {
-        case 'EACCES':
-            console.error(`SERVER STARTUP ERROR: ${bind} requires elevated privileges.`);
-            process.exit(1);
-            break;
-        case 'EADDRINUSE':
-            console.error(`SERVER STARTUP ERROR: ${bind} is already in use.`);
-            process.exit(1);
-            break;
-        default:
-            console.error(`An error occurred with the server: ${error.message}`);
-            throw error;
-    }
+    if (error.syscall !== 'listen') throw error;
+    const bind = typeof PORT === 'string' ? 'Pipe ' + PORT : 'Port ' + PORT;
+    switch (error.code) {
+        case 'EACCES':
+            console.error(`SERVER STARTUP ERROR: ${bind} requires elevated privileges.`);
+            process.exit(1);
+            break;
+        case 'EADDRINUSE':
+            console.error(`SERVER STARTUP ERROR: ${bind} is already in use.`);
+            process.exit(1);
+            break;
+        default:
+            throw error;
+    }
 });
