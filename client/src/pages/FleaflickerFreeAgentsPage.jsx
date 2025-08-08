@@ -1,11 +1,10 @@
 // client/src/pages/FleaflickerFreeAgentsPage.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { get } from '../api/apiService';
 import { styles } from '../styles';
 import './DraftTrackerPage.css';
 
-// --- NEW: Import TanStack Table hooks ---
+// --- Import TanStack Table hooks ---
 import { 
     useReactTable, 
     getCoreRowModel, 
@@ -13,9 +12,7 @@ import {
     flexRender 
 } from '@tanstack/react-table';
 
-const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
-
-// Reusable Modal component remains the same
+// Reusable Modal component
 const Modal = ({ content, onClose }) => {
     const handleContentClick = (e) => e.stopPropagation();
     return (
@@ -28,9 +25,17 @@ const Modal = ({ content, onClose }) => {
     );
 };
 
-function cleanseName(name) {
-    if (typeof name !== 'string') return '';
-    return name.replace(/[^\w\s']+/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+// Create a dedicated component for the indeterminate checkbox
+function IndeterminateCheckbox({ indeterminate, ...rest }) {
+    const ref = useRef(null);
+  
+    useEffect(() => {
+      if (typeof indeterminate === 'boolean' && ref.current) {
+        ref.current.indeterminate = indeterminate;
+      }
+    }, [ref, indeterminate]);
+  
+    return <input type="checkbox" ref={ref} {...rest} />;
 }
 
 
@@ -47,7 +52,7 @@ function FleaflickerFreeAgentsPage() {
     const [sorting, setSorting] = useState([{ id: 'fantasy_calc_value', desc: true }]);
     const [rowSelection, setRowSelection] = useState({});
 
-    // Data fetching logic remains mostly the same
+    // --- Simplified data fetching logic ---
     const fetchData = useCallback(async (currentLeagueId) => {
         if (!currentLeagueId) {
             setError("A Fleaflicker League ID is required.");
@@ -57,61 +62,53 @@ function FleaflickerFreeAgentsPage() {
         setLoading(true);
         setError(null);
         try { 
-            const [fleaflickerData, fantasyCalcValues, pythonAnalysisData] = await Promise.all([
-              get(`/api/fleaflicker/league/${currentLeagueId}/data`),
-              get(`/api/values/fantasycalc?isDynasty=true&numQbs=1&ppr=0.5`),
-              fetch(`${PYTHON_API_BASE_URL}/api/enriched-players`).then(res => {
-                if (!res.ok) throw new Error(`Python API error: ${res.status}`);
-                return res.json();
-              })
-            ]);
-            
-            // Step 1: Determine the actual free agents from live league data
-            const rosteredPlayerNames = new Set();
-            if (fleaflickerData && fleaflickerData.rosters) {
-                fleaflickerData.rosters.forEach(roster => {
-                    roster.players.forEach(player => rosteredPlayerNames.add(cleanseName(player.full_name)))
-                });
-            }
-            const masterPlayerList = fleaflickerData.master_player_list || [];
-            const actualFreeAgents = masterPlayerList.filter(p => !rosteredPlayerNames.has(cleanseName(p.full_name)));
-            
-            // Step 2: Create lookup maps for your analysis data
-            const pythonAnalysisMap = new Map();
-            if (Array.isArray(pythonAnalysisData)) {
-                pythonAnalysisData.forEach(player => {
-                    pythonAnalysisMap.set(cleanseName(player.player_name_original), player);
-                });
-            }
+            // Use fetch() directly to avoid issues with the underlying apiService.
+            const apiUrl = `http://localhost:5000/api/fleaflicker/league/${currentLeagueId}/data`;
+            const response = await fetch(apiUrl);
 
-            const fantasyCalcValuesMap = new Map();
-            if (fantasyCalcValues && typeof fantasyCalcValues === 'object') {
-                Object.entries(fantasyCalcValues).forEach(([name, data]) => {
-                    fantasyCalcValuesMap.set(name, data.value);
+            if (!response.ok) {
+                throw new Error(`Network response was not ok: ${response.statusText}`);
+            }
+            
+            const leagueData = await response.json();
+            // --- RE-ADDED DEBUG LOGGING ---
+            console.log('[DEBUG] Received leagueData from server:', leagueData);
+            
+            // Step 2: Determine who is rostered using their unique Fleaflicker ID
+            const rosteredPlayerIds = new Set();
+            if (leagueData && Array.isArray(leagueData.rosters)) {
+                leagueData.rosters.forEach(roster => {
+                    if (roster && Array.isArray(roster.players)) {
+                        roster.players.forEach(player => {
+                            if (player && player.proPlayer && player.proPlayer.id) {
+                                rosteredPlayerIds.add(player.proPlayer.id);
+                            }
+                        });
+                    }
                 });
             }
+            // --- RE-ADDED DEBUG LOGGING ---
+            console.log(`[DEBUG] Found ${rosteredPlayerIds.size} rostered players. Sample IDs:`, Array.from(rosteredPlayerIds).slice(0, 10));
 
-            // --- THIS IS THE FIX ---
-            // Step 3: Iterate over the CORRECT list (actualFreeAgents) and enrich them.
-            const finalFreeAgents = actualFreeAgents
-                .map(player => {
-                    const cleansedName = cleanseName(player.full_name);
-                    const analysisData = pythonAnalysisMap.get(cleansedName) || {};
-                    const tradeValue = fantasyCalcValuesMap.get(cleansedName) || 0;
-                    
-                    return { 
-                        ...player,        // Start with base info from Fleaflicker (name, fleaflicker_id, etc.)
-                        ...analysisData,  // Add all the rich analysis from Python
-                        fantasy_calc_value: tradeValue, // Add the correct trade value
-                        full_name: player.full_name // Ensure original name isn't overwritten
-                    };
-                })
-                .filter(p => {
-                    const skillPositions = ['QB', 'WR', 'RB', 'TE'];
-                    const isSkillPlayer = skillPositions.includes(p.position);
-                    // Filter for players who have a trade value, so the list is more relevant
-                    return isSkillPlayer && p.fantasy_calc_value > 0;
-                });
+
+            // Step 3: Filter the enriched master list to find free agents using the correct ID
+            const masterList = leagueData.enriched_master_list || [];
+            const actualFreeAgents = masterList.filter(player => 
+                player && !rosteredPlayerIds.has(player.fleaflicker_id)
+            );
+            // --- RE-ADDED DEBUG LOGGING ---
+            console.log(`[DEBUG] Found ${actualFreeAgents.length} players in master list who are not on a roster.`);
+
+            
+            // Step 4: Apply final client-side filter for relevance
+            const finalFreeAgents = actualFreeAgents.filter(p => {
+                const skillPositions = ['QB', 'WR', 'RB', 'TE'];
+                const isSkillPlayer = p && skillPositions.includes(p.position);
+                return isSkillPlayer && p.fantasy_calc_value > 0;
+            });
+            // --- RE-ADDED DEBUG LOGGING ---
+            console.log(`[DEBUG] Found ${finalFreeAgents.length} relevant free agents after final filtering.`);
+
             
             setEnrichedFreeAgents(finalFreeAgents);
       
@@ -124,7 +121,6 @@ function FleaflickerFreeAgentsPage() {
     }, []);
 
     useEffect(() => {
-        // Use a default league ID for easier testing if none is in the URL
         const currentLeagueId = leagueId || '197269'; 
         fetchData(currentLeagueId);
     }, [leagueId, fetchData]);
@@ -134,25 +130,19 @@ function FleaflickerFreeAgentsPage() {
         {
             id: 'select',
             header: ({ table }) => (
-                <input
-                    type="checkbox"
-                    {...{
-                        checked: table.getIsAllRowsSelected(),
-                        indeterminate: table.getIsSomeRowsSelected(),
-                        onChange: table.getToggleAllRowsSelectedHandler(),
-                    }}
+                <IndeterminateCheckbox
+                    checked={table.getIsAllRowsSelected()}
+                    indeterminate={table.getIsSomeRowsSelected()}
+                    onChange={table.getToggleAllRowsSelectedHandler()}
                 />
             ),
             cell: ({ row }) => (
                 <div style={{textAlign: 'center'}}>
-                    <input
-                        type="checkbox"
-                        {...{
-                            checked: row.getIsSelected(),
-                            disabled: !row.getCanSelect(),
-                            indeterminate: row.getIsSomeSelected(),
-                            onChange: row.getToggleSelectedHandler(),
-                        }}
+                    <IndeterminateCheckbox
+                        checked={row.getIsSelected()}
+                        disabled={!row.getCanSelect()}
+                        indeterminate={row.getIsSomeSelected()}
+                        onChange={row.getToggleSelectedHandler()}
                     />
                 </div>
             ),
@@ -162,7 +152,9 @@ function FleaflickerFreeAgentsPage() {
         { accessorKey: 'team', header: 'Team' },
         { accessorKey: 'age', header: 'Age' },
         { accessorKey: 'fantasy_calc_value', header: 'Trade Value', cell: info => <strong>{info.getValue()}</strong> },
-        { accessorKey: 'overall_rank', header: 'Overall Rk' },
+        { accessorKey: 'overall_rank', header: 'Dynasty Rk' },
+        { accessorKey: 'sf_redraft_rank', header: 'SF Redraft Rk' },
+        { accessorKey: 'redraft_rank', header: '1QB Redraft Rk' },
         { accessorKey: 'positional_rank', header: 'Pos Rk' },
         { accessorKey: 'tier', header: 'Tier' },
         { accessorKey: 'zap_score', header: 'ZAP' },
@@ -173,10 +165,7 @@ function FleaflickerFreeAgentsPage() {
             cell: info => <div style={{ minWidth: '300px', whiteSpace: 'normal' }}>{info.getValue() || 'N/A'}</div>
         },
         { accessorKey: 'category', header: 'Category' },
-        { accessorKey: 'draft_capital_delta', header: 'Draft Delta' },
         { accessorKey: 'rsp_pos_rank', header: 'RSP Pos Rk' },
-        { accessorKey: 'rsp_2023_2025_rank', header: 'RSP 23-25' },
-        { accessorKey: 'rp_2021_2025_rank', header: 'RP 21-25' },
         {
             id: 'notes',
             header: 'Notes',
@@ -205,7 +194,6 @@ function FleaflickerFreeAgentsPage() {
         }
     ], []);
 
-    // --- Create the table instance with the hook ---
     const table = useReactTable({
         data: enrichedFreeAgents,
         columns,
@@ -215,7 +203,7 @@ function FleaflickerFreeAgentsPage() {
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         enableRowSelection: true,
-        getRowId: row => row.fleaflicker_id || row.player_name_original, // Use a unique ID for selection
+        getRowId: row => row.fleaflicker_id,
     });
 
     if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
@@ -223,7 +211,7 @@ function FleaflickerFreeAgentsPage() {
 
     return (
         <div style={styles.pageContainer}>
-            <h1 style={styles.h1}>Fleaflicker Draft Tracker</h1>
+            <h1 style={styles.h1}>Fleaflicker Free Agents</h1>
             <p style={styles.p}>Found {table.getRowModel().rows.length} relevant free agents for league {leagueId || 'default'}.</p>
       
             <div style={styles.tableContainer}>
