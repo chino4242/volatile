@@ -1,0 +1,19 @@
+.selected-row {
+  background-color: #212529 !important; /* Dark background */
+  color: #f8f9fa; /* Light text color */
+  text-decoration: line-through;
+  text-decoration-color: #e63946; /* A contrasting red for the line */
+  opacity: 0.7;
+}
+
+/* Ensure text color is overridden for all cells in the selected row */
+.selected-row td {
+  color: #f8f9fa !important;
+}
+
+/* Make sure buttons are still visible and clickable */
+.selected-row button {
+    opacity: 1;
+    color: #212529;
+    background-color: #f8f9fa;
+}

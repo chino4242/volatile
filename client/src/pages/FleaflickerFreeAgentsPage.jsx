@@ -1,16 +1,20 @@
 // client/src/pages/FleaflickerFreeAgentsPage.jsx
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { get } from '../api/apiService';
-import { styles } from '../styles'; // Import the new shared styles
+import { styles } from '../styles';
+import './DraftTrackerPage.css';
 
-const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
+// --- Import TanStack Table hooks ---
+import { 
+    useReactTable, 
+    getCoreRowModel, 
+    getSortedRowModel,
+    flexRender 
+} from '@tanstack/react-table';
 
-// A reusable Modal component for popups, now using shared styles
+// Reusable Modal component
 const Modal = ({ content, onClose }) => {
     const handleContentClick = (e) => e.stopPropagation();
-
     return (
         <div style={styles.modalOverlay} onClick={onClose}>
             <div style={styles.modalContent} onClick={handleContentClick}>
@@ -21,201 +25,245 @@ const Modal = ({ content, onClose }) => {
     );
 };
 
-function cleanseName(name) {
-    if (typeof name !== 'string') return '';
-    return name.replace(/[^\w\s']+/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+// Create a dedicated component for the indeterminate checkbox
+function IndeterminateCheckbox({ indeterminate, ...rest }) {
+    const ref = useRef(null);
+  
+    useEffect(() => {
+      if (typeof indeterminate === 'boolean' && ref.current) {
+        ref.current.indeterminate = indeterminate;
+      }
+    }, [ref, indeterminate]);
+  
+    return <input type="checkbox" ref={ref} {...rest} />;
 }
 
 
 function FleaflickerFreeAgentsPage() {
-  const { leagueId } = useParams();
+    const { leagueId } = useParams();
   
-  const [enrichedFreeAgents, setEnrichedFreeAgents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [modalContent, setModalContent] = useState(null);
-  const [hoveredRow, setHoveredRow] = useState(null);
+    const [enrichedFreeAgents, setEnrichedFreeAgents] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [modalContent, setModalContent] = useState(null);
+    const [hoveredRow, setHoveredRow] = useState(null);
+    
+    // --- State for TanStack Table ---
+    const [sorting, setSorting] = useState([{ id: 'fantasy_calc_value', desc: true }]);
+    const [rowSelection, setRowSelection] = useState({});
 
-  const fetchData = useCallback(async (currentLeagueId) => {
-    if (!currentLeagueId) {
-        setError("A Fleaflicker League ID is required.");
-        setLoading(false);
-        return;
-    }
-  
-    setLoading(true);
-    setError(null);
-    try {    
-        const [fleaflickerData, fantasyCalcValues] = await Promise.all([
-          get(`/api/fleaflicker/league/${currentLeagueId}/data`),
-          get(`/api/values/fantasycalc?isDynasty=true&numQbs=1&ppr=0.5`)
-        ]);
-        
-        const masterPlayerList = fleaflickerData.master_player_list || [];
-        const rosteredPlayerNames = new Set();
-        fleaflickerData.rosters.forEach(roster => {
-            roster.players.forEach(player => rosteredPlayerNames.add(cleanseName(player.full_name)))
-        });
-        
-        const actualFreeAgents = masterPlayerList.filter(p => !rosteredPlayerNames.has(cleanseName(p.full_name)));
-  
-        const playerIds = actualFreeAgents.map(p => p.sleeper_id);
-        let analysisDataMap = new Map();
-  
-        if (playerIds.length > 0) {
-          const analysisResponse = await fetch(`${PYTHON_API_BASE_URL}/api/enriched-players/batch`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sleeper_ids: playerIds })
-          });
-          if (!analysisResponse.ok) throw new Error(`Python API error: ${analysisResponse.status}`);
-          
-          const analysisPlayers = await analysisResponse.json();
-          analysisPlayers.forEach(player => {
-            if (player?.sleeper_id && !player.error) {
-              analysisDataMap.set(String(player.sleeper_id), player);
-            }
-          });
+    // --- Simplified data fetching logic ---
+    const fetchData = useCallback(async (currentLeagueId) => {
+        if (!currentLeagueId) {
+            setError("A Fleaflicker League ID is required.");
+            setLoading(false);
+            return;
         }
-  
-        // --- THIS IS THE FIX ---
-        // Create a lookup map from the fresh 1-QB values we just fetched.
-        const fantasyCalcValuesMap = new Map(Object.entries(fantasyCalcValues));
+        setLoading(true);
+        setError(null);
+        try { 
+            // Use fetch() directly to avoid issues with the underlying apiService.
+            const apiUrl = `http://localhost:5000/api/fleaflicker/league/${currentLeagueId}/data`;
+            const response = await fetch(apiUrl);
 
-        const finalFreeAgents = actualFreeAgents.map(player => {
-          const analysis = analysisDataMap.get(String(player.sleeper_id));
-          // Look up the player in the new map to get the correct 1-QB trade value.
-          const calcValueData = fantasyCalcValuesMap.get(cleanseName(player.full_name));
-
-          return { 
-              ...player, 
-              ...analysis,
-              // Explicitly overwrite the value with the correct one from our live API call.
-              fantasy_calc_value: calcValueData?.value || 0 
-          };
-        });
-  
-        const skillPositions = ['QB', 'WR', 'RB', 'TE'];
-        const filteredAndSorted = finalFreeAgents
-          .filter(p => skillPositions.includes(p.position) && p.fantasy_calc_value > 0)
-          .sort((a, b) => (b.fantasy_calc_value || 0) - (a.fantasy_calc_value || 0));
-        
-        setEnrichedFreeAgents(filteredAndSorted);
-  
-      } catch (e) {
-        console.error("Failed to fetch Fleaflicker page data:", e);
-        setError(e.message);
-      } finally {
-        setLoading(false);
-      }
-  }, []);
-
-  useEffect(() => {
-    fetchData(leagueId);
-  }, [leagueId, fetchData]);
+            if (!response.ok) {
+                throw new Error(`Network response was not ok: ${response.statusText}`);
+            }
+            
+            const leagueData = await response.json();
+            // --- RE-ADDED DEBUG LOGGING ---
+            console.log('[DEBUG] Received leagueData from server:', leagueData);
+            
+            // Step 2: Determine who is rostered using their unique Fleaflicker ID
+            const rosteredPlayerIds = new Set();
+            if (leagueData && Array.isArray(leagueData.rosters)) {
+                leagueData.rosters.forEach(roster => {
+                    if (roster && Array.isArray(roster.players)) {
+                        roster.players.forEach(player => {
+                            if (player && player.proPlayer && player.proPlayer.id) {
+                                rosteredPlayerIds.add(player.proPlayer.id);
+                            }
+                        });
+                    }
+                });
+            }
+            // --- RE-ADDED DEBUG LOGGING ---
+            console.log(`[DEBUG] Found ${rosteredPlayerIds.size} rostered players. Sample IDs:`, Array.from(rosteredPlayerIds).slice(0, 10));
 
 
-  if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
-  if (error) return <div style={{...styles.pageContainer, ...styles.errorText}}>Error: {error}</div>;
+            // Step 3: Filter the enriched master list to find free agents using the correct ID
+            const masterList = leagueData.enriched_master_list || [];
+            const actualFreeAgents = masterList.filter(player => 
+                player && !rosteredPlayerIds.has(player.fleaflicker_id)
+            );
+            // --- RE-ADDED DEBUG LOGGING ---
+            console.log(`[DEBUG] Found ${actualFreeAgents.length} players in master list who are not on a roster.`);
 
-  return (
-    <div style={styles.pageContainer}>
-      <h1 style={styles.h1}>Top Fleaflicker Free Agents</h1>
-      <p style={styles.p}>Found {enrichedFreeAgents.length} relevant players for league {leagueId}, sorted by trade value.</p>
+            
+            // Step 4: Apply final client-side filter for relevance
+            const finalFreeAgents = actualFreeAgents.filter(p => {
+                const skillPositions = ['QB', 'WR', 'RB', 'TE'];
+                const isSkillPlayer = p && skillPositions.includes(p.position);
+                return isSkillPlayer && p.fantasy_calc_value > 0;
+            });
+            // --- RE-ADDED DEBUG LOGGING ---
+            console.log(`[DEBUG] Found ${finalFreeAgents.length} relevant free agents after final filtering.`);
+
+            
+            setEnrichedFreeAgents(finalFreeAgents);
       
-      <div style={styles.tableContainer}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Full Name</th>
-              <th style={styles.th}>Pos</th>
-              <th style={styles.th}>Team</th>
-              <th style={styles.th}>Age</th>
-              <th style={styles.th}>Trade Value</th>
-              <th style={styles.th}>Overall Rk</th>
-              <th style={styles.th}>Pos Rk</th>
-              <th style={styles.th}>Tier</th>
-              <th style={styles.th}>ZAP</th>
-              <th style={styles.th}>Depth Score</th>
-              <th style={{...styles.th, minWidth: '150px'}}>Comp Spectrum</th>
-              <th style={{...styles.th, minWidth: '150px'}}>Category</th>
-              <th style={{...styles.th, minWidth: '150px'}}>Draft Delta</th>
-              <th style={styles.th}>RSP Pos Rk</th>
-              <th style={styles.th}>RSP 23-25</th>
-              <th style={styles.th}>RP 21-25</th>
-              <th style={styles.th}>Notes</th>
-              <th style={styles.th}>AI Analysis</th>
-            </tr>
-          </thead>
-          <tbody>
-            {enrichedFreeAgents.map((player) => (
-              <tr 
-                key={player.sleeper_id}
-                onMouseEnter={() => setHoveredRow(player.sleeper_id)}
-                onMouseLeave={() => setHoveredRow(null)}
-                style={hoveredRow === player.sleeper_id ? styles.trHover : {}}
-              >
-                <td style={styles.td}>{player.full_name || 'N/A'}</td>
-                <td style={styles.td}>{player.position}</td>
-                <td style={styles.td}>{player.team || 'FA'}</td>
-                <td style={styles.td}>{player.age || 'N/A'}</td>
-                <td style={{...styles.td, ...styles.valueCell}}>{player.fantasy_calc_value}</td>
-                <td style={styles.td}>{player.overall_rank}</td>
-                <td style={styles.td}>{player.positional_rank}</td>
-                <td style={styles.td}>{player.tier}</td>
-                <td style={styles.td}>{player.zap_score}</td>
-                <td style={styles.td}>{player.depth_of_talent_score}</td>
-                <td style={styles.td}>{player.comparison_spectrum}</td>
-                <td style={styles.td}>{player.category}</td>
-                <td style={styles.td}>{player.draft_capital_delta}</td>
-                <td style={styles.td}>{player.rsp_pos_rank}</td>
-                <td style={styles.td}>{player.rsp_2023_2025_rank}</td>
-                <td style={styles.td}>{player.rp_2021_2025_rank}</td>
-                <td style={styles.td}>
-                  {(player.notes_lrqb || player.notes_rsp || player.depth_of_talent_desc) && (
-                      <button 
-                          onClick={() => setModalContent({
-                              title: `${player.full_name} - Analysis Notes`,
-                              body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}`
-                          })}
-                          style={styles.notesButton}
-                      >
-                          View
-                      </button>
-                  )}
-                </td>
-                <td style={styles.td}>
-                  {player.gemini_analysis && (
-                      <button 
-                          onClick={() => setModalContent({
-                              title: `${player.full_name} - AI Analysis`,
-                              body: player.gemini_analysis
-                          })}
-                          style={styles.notesButton}
-                      >
-                          View
-                      </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          } catch (e) {
+            console.error("Failed to fetch Fleaflicker page data:", e);
+            setError(e.message);
+          } finally {
+            setLoading(false);
+          }
+    }, []);
 
-      {modalContent && (
-        <Modal 
-            content={
-                <>
-                    <h2 style={styles.h2}>{modalContent.title}</h2>
-                    <div style={styles.modalBody}>{modalContent.body}</div>
-                </>
-            } 
-            onClose={() => setModalContent(null)} 
-        />
-    )}
-    </div>
-  );
+    useEffect(() => {
+        const currentLeagueId = leagueId || '197269'; 
+        fetchData(currentLeagueId);
+    }, [leagueId, fetchData]);
+
+    // --- Define columns for TanStack Table ---
+    const columns = useMemo(() => [
+        {
+            id: 'select',
+            header: ({ table }) => (
+                <IndeterminateCheckbox
+                    checked={table.getIsAllRowsSelected()}
+                    indeterminate={table.getIsSomeRowsSelected()}
+                    onChange={table.getToggleAllRowsSelectedHandler()}
+                />
+            ),
+            cell: ({ row }) => (
+                <div style={{textAlign: 'center'}}>
+                    <IndeterminateCheckbox
+                        checked={row.getIsSelected()}
+                        disabled={!row.getCanSelect()}
+                        indeterminate={row.getIsSomeSelected()}
+                        onChange={row.getToggleSelectedHandler()}
+                    />
+                </div>
+            ),
+        },
+        { accessorKey: 'full_name', header: 'Full Name' },
+        { accessorKey: 'position', header: 'Pos' },
+        { accessorKey: 'team', header: 'Team' },
+        { accessorKey: 'age', header: 'Age' },
+        { accessorKey: 'fantasy_calc_value', header: 'Trade Value', cell: info => <strong>{info.getValue()}</strong> },
+        { accessorKey: 'overall_rank', header: 'Dynasty Rk' },
+        { accessorKey: 'sf_redraft_rank', header: 'SF Redraft Rk' },
+        { accessorKey: 'redraft_rank', header: '1QB Redraft Rk' },
+        { accessorKey: 'positional_rank', header: 'Pos Rk' },
+        { accessorKey: 'tier', header: 'Tier' },
+        { accessorKey: 'zap_score', header: 'ZAP' },
+        { accessorKey: 'depth_of_talent_score', header: 'Depth Score' },
+        {
+            accessorKey: 'comparison_spectrum',
+            header: 'Comp Spectrum',
+            cell: info => <div style={{ minWidth: '300px', whiteSpace: 'normal' }}>{info.getValue() || 'N/A'}</div>
+        },
+        { accessorKey: 'category', header: 'Category' },
+        { accessorKey: 'rsp_pos_rank', header: 'RSP Pos Rk' },
+        {
+            id: 'notes',
+            header: 'Notes',
+            cell: ({ row }) => {
+                const { original: player } = row;
+                return (player.notes_lrqb || player.notes_rsp || player.depth_of_talent_desc) && (
+                    <button style={styles.notesButton} onClick={() => setModalContent({
+                        title: `${player.full_name} - Analysis Notes`,
+                        body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}`
+                    })}>View</button>
+                );
+            }
+        },
+        {
+            id: 'aiAnalysis',
+            header: 'AI Analysis',
+            cell: ({ row }) => {
+                const { original: player } = row;
+                return player.gemini_analysis ? (
+                    <button style={styles.notesButton} onClick={() => setModalContent({
+                        title: `${player.full_name} - AI Analysis`,
+                        body: player.gemini_analysis
+                    })}>View</button>
+                ) : <span style={{color: '#999'}}>N/A</span>;
+            }
+        }
+    ], []);
+
+    const table = useReactTable({
+        data: enrichedFreeAgents,
+        columns,
+        state: { sorting, rowSelection },
+        onSortingChange: setSorting,
+        onRowSelectionChange: setRowSelection,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        enableRowSelection: true,
+        getRowId: row => row.fleaflicker_id,
+    });
+
+    if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
+    if (error) return <div style={{...styles.pageContainer, ...styles.errorText}}>Error: {error}</div>;
+
+    return (
+        <div style={styles.pageContainer}>
+            <h1 style={styles.h1}>Fleaflicker Free Agents</h1>
+            <p style={styles.p}>Found {table.getRowModel().rows.length} relevant free agents for league {leagueId || 'default'}.</p>
+      
+            <div style={styles.tableContainer}>
+                <table style={styles.table}>
+                    <thead>
+                        {table.getHeaderGroups().map(headerGroup => (
+                            <tr key={headerGroup.id}>
+                                {headerGroup.headers.map(header => (
+                                    <th key={header.id} colSpan={header.colSpan} style={{...styles.th, cursor: header.column.getCanSort() ? 'pointer' : 'default'}}
+                                        onClick={header.column.getToggleSortingHandler()}
+                                    >
+                                        {header.isPlaceholder ? null : (
+                                            <div>
+                                                {flexRender(header.column.columnDef.header, header.getContext())}
+                                                {{ asc: ' ▲', desc: ' ▼'}[header.column.getIsSorted()] ?? null}
+                                            </div>
+                                        )}
+                                    </th>
+                                ))}
+                            </tr>
+                        ))}
+                    </thead>
+                    <tbody>
+                        {table.getRowModel().rows.map(row => (
+                            <tr
+                                key={row.id}
+                                className={row.getIsSelected() ? 'selected-row' : ''}
+                                onMouseEnter={() => setHoveredRow(row.id)}
+                                onMouseLeave={() => setHoveredRow(null)}
+                                style={hoveredRow === row.id ? styles.trHover : {}}
+                            >
+                                {row.getVisibleCells().map(cell => (
+                                    <td key={cell.id} style={{...styles.td, ...(cell.column.id === 'comparison_spectrum' ? {minWidth: '300px', whiteSpace: 'normal'} : {})}}>
+                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                    </td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {modalContent && (
+                <Modal 
+                    content={<>
+                        <h2 style={styles.h2}>{modalContent.title}</h2>
+                        <div style={styles.modalBody}>{modalContent.body}</div>
+                    </>} 
+                    onClose={() => setModalContent(null)} 
+                />
+            )}
+        </div>
+    );
 }
 
 export default FleaflickerFreeAgentsPage;
