@@ -21,7 +21,7 @@ export const styles = {
         color: colors.text,
         fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
         minHeight: '100vh',
-        lineHeight: 1.6,
+        lineHeight: 1.7,
     },
     // General page layout
     pageContainer: {
