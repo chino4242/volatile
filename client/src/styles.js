@@ -113,6 +113,12 @@ export const styles = {
     trHover: {
         backgroundColor: colors.primaryMuted, // Style for hovering over table rows
     },
+    // Style for a "checked" or "completed" table row
+    trChecked: {
+        backgroundColor: colors.text, // Use the dark text color for the background
+        color: colors.surface, // Use the light surface color for the text
+        textDecoration: 'line-through',
+    },
     // Specific cell styles
     valueCell: {
         fontWeight: 'bold',

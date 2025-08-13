@@ -35,6 +35,7 @@ function FleaflickerFreeAgentsPage() {
   const [error, setError] = useState(null);
   const [modalContent, setModalContent] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [checkedRows, setCheckedRows] = useState(new Set());
 
   const fetchData = useCallback(async (currentLeagueId) => {
     if (!currentLeagueId) {
@@ -114,6 +115,18 @@ function FleaflickerFreeAgentsPage() {
     fetchData(leagueId);
   }, [leagueId, fetchData]);
 
+  const handleCheckboxChange = (playerId) => {
+    setCheckedRows(prevCheckedRows => {
+        const newCheckedRows = new Set(prevCheckedRows);
+        if (newCheckedRows.has(playerId)) {
+            newCheckedRows.delete(playerId);
+        } else {
+            newCheckedRows.add(playerId);
+        }
+        return newCheckedRows;
+    });
+  };
+
 
   if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
   if (error) return <div style={{...styles.pageContainer, ...styles.errorText}}>Error: {error}</div>;
@@ -127,6 +140,7 @@ function FleaflickerFreeAgentsPage() {
         <table style={styles.table}>
           <thead>
             <tr>
+              <th style={styles.th}></th>
               <th style={styles.th}>Full Name</th>
               <th style={styles.th}>Pos</th>
               <th style={styles.th}>Team</th>
@@ -148,57 +162,85 @@ function FleaflickerFreeAgentsPage() {
             </tr>
           </thead>
           <tbody>
-            {enrichedFreeAgents.map((player) => (
-              <tr 
-                key={player.sleeper_id}
-                onMouseEnter={() => setHoveredRow(player.sleeper_id)}
-                onMouseLeave={() => setHoveredRow(null)}
-                style={hoveredRow === player.sleeper_id ? styles.trHover : {}}
-              >
-                <td style={styles.td}>{player.full_name || 'N/A'}</td>
-                <td style={styles.td}>{player.position}</td>
-                <td style={styles.td}>{player.team || 'FA'}</td>
-                <td style={styles.td}>{player.age || 'N/A'}</td>
-                <td style={{...styles.td, ...styles.valueCell}}>{player.fantasy_calc_value}</td>
-                <td style={styles.td}>{player.overall_rank}</td>
-                <td style={styles.td}>{player.positional_rank}</td>
-                <td style={styles.td}>{player.tier}</td>
-                <td style={styles.td}>{player.zap_score}</td>
-                <td style={styles.td}>{player.depth_of_talent_score}</td>
-                <td style={styles.td}>{player.comparison_spectrum}</td>
-                <td style={styles.td}>{player.category}</td>
-                <td style={styles.td}>{player.draft_capital_delta}</td>
-                <td style={styles.td}>{player.rsp_pos_rank}</td>
-                <td style={styles.td}>{player.rsp_2023_2025_rank}</td>
-                <td style={styles.td}>{player.rp_2021_2025_rank}</td>
-                <td style={styles.td}>
-                  {(player.notes_lrqb || player.notes_rsp || player.depth_of_talent_desc) && (
-                      <button 
-                          onClick={() => setModalContent({
-                              title: `${player.full_name} - Analysis Notes`,
-                              body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}`
-                          })}
-                          style={styles.notesButton}
-                      >
-                          View
-                      </button>
-                  )}
-                </td>
-                <td style={styles.td}>
-                  {player.gemini_analysis && (
-                      <button 
-                          onClick={() => setModalContent({
-                              title: `${player.full_name} - AI Analysis`,
-                              body: player.gemini_analysis
-                          })}
-                          style={styles.notesButton}
-                      >
-                          View
-                      </button>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {enrichedFreeAgents.map((player) => {
+              const isChecked = checkedRows.has(player.sleeper_id);
+              const isHovered = hoveredRow === player.sleeper_id;
+
+              const rowStyle = isChecked
+                ? styles.trChecked
+                : (isHovered ? styles.trHover : {});
+
+              // When a row is checked, we need to override the default text color of the cells.
+              // 'inherit' will take the color from the parent `tr` which is set to white in `trChecked`.
+              const cellStyleOverride = isChecked ? { color: 'inherit' } : {};
+              const tdStyle = { ...styles.td, ...cellStyleOverride };
+              const valueCellStyle = { ...styles.td, ...styles.valueCell, ...cellStyleOverride };
+
+              // Also adjust button styles for visibility on a dark background.
+              const buttonStyle = isChecked
+                ? { ...styles.notesButton, backgroundColor: '#444', color: '#fff', borderColor: '#666' }
+                : styles.notesButton;
+
+              return (
+                <tr
+                  key={player.sleeper_id}
+                  onMouseEnter={() => !isChecked && setHoveredRow(player.sleeper_id)}
+                  onMouseLeave={() => setHoveredRow(null)}
+                  style={rowStyle}
+                >
+                  <td style={tdStyle}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => handleCheckboxChange(player.sleeper_id)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </td>
+                  <td style={tdStyle}>{player.full_name || 'N/A'}</td>
+                  <td style={tdStyle}>{player.position}</td>
+                  <td style={tdStyle}>{player.team || 'FA'}</td>
+                  <td style={tdStyle}>{player.age || 'N/A'}</td>
+                  <td style={valueCellStyle}>{player.fantasy_calc_value}</td>
+                  <td style={tdStyle}>{player.overall_rank}</td>
+                  <td style={tdStyle}>{player.positional_rank}</td>
+                  <td style={tdStyle}>{player.tier}</td>
+                  <td style={tdStyle}>{player.zap_score}</td>
+                  <td style={tdStyle}>{player.depth_of_talent_score}</td>
+                  <td style={tdStyle}>{player.comparison_spectrum}</td>
+                  <td style={tdStyle}>{player.category}</td>
+                  <td style={tdStyle}>{player.draft_capital_delta}</td>
+                  <td style={tdStyle}>{player.rsp_pos_rank}</td>
+                  <td style={tdStyle}>{player.rsp_2023_2025_rank}</td>
+                  <td style={tdStyle}>{player.rp_2021_2025_rank}</td>
+                  <td style={tdStyle}>
+                    {(player.notes_lrqb || player.notes_rsp || player.depth_of_talent_desc) && (
+                        <button
+                            onClick={() => setModalContent({
+                                title: `${player.full_name} - Analysis Notes`,
+                                body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}`
+                            })}
+                            style={buttonStyle}
+                        >
+                            View
+                        </button>
+                    )}
+                  </td>
+                  <td style={tdStyle}>
+                    {player.gemini_analysis && (
+                        <button
+                            onClick={() => setModalContent({
+                                title: `${player.full_name} - AI Analysis`,
+                                body: player.gemini_analysis
+                            })}
+                            style={buttonStyle}
+                        >
+                            View
+                        </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
