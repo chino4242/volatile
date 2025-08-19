@@ -1,5 +1,3 @@
-// client/src/pages/FleaflickerFreeAgentsPage.jsx
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { get } from '../api/apiService';
@@ -88,19 +86,23 @@ function FleaflickerFreeAgentsPage() {
           const calcValueData = fantasyCalcValuesMap.get(cleanseName(player.full_name));
 
           return { 
-              ...player, 
-              ...analysis,
-              // Explicitly overwrite the value with the correct one from our live API call.
-              fantasy_calc_value: calcValueData?.value || 0 
+                ...player, 
+                ...analysis,
+                // Explicitly overwrite the value with the correct one from our live API call.
+                fantasy_calc_value: calcValueData?.value || 0 
           };
         });
   
         const skillPositions = ['QB', 'WR', 'RB', 'TE'];
-        const filteredAndSorted = finalFreeAgents
+        const rankedFreeAgents = finalFreeAgents
           .filter(p => skillPositions.includes(p.position) && p.fantasy_calc_value > 0)
-          .sort((a, b) => (b.fantasy_calc_value || 0) - (a.fantasy_calc_value || 0));
+          .sort((a, b) => (b.fantasy_calc_value || 0) - (a.fantasy_calc_value || 0))
+          .map((player, index) => ({
+              ...player,
+              rank: index + 1 // Add the rank property
+          }));
         
-        setEnrichedFreeAgents(filteredAndSorted);
+        setEnrichedFreeAgents(rankedFreeAgents);
   
       } catch (e) {
         console.error("Failed to fetch Fleaflicker page data:", e);
@@ -127,6 +129,7 @@ function FleaflickerFreeAgentsPage() {
         <table style={styles.table}>
           <thead>
             <tr>
+              <th style={styles.th}>Rank</th>
               <th style={styles.th}>Full Name</th>
               <th style={styles.th}>Pos</th>
               <th style={styles.th}>Team</th>
@@ -155,6 +158,7 @@ function FleaflickerFreeAgentsPage() {
                 onMouseLeave={() => setHoveredRow(null)}
                 style={hoveredRow === player.sleeper_id ? styles.trHover : {}}
               >
+                <td style={{...styles.td, ...styles.valueCell}}>{player.rank}</td>
                 <td style={styles.td}>{player.full_name || 'N/A'}</td>
                 <td style={styles.td}>{player.position}</td>
                 <td style={styles.td}>{player.team || 'FA'}</td>
