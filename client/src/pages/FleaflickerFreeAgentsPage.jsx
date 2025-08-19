@@ -33,6 +33,7 @@ function FleaflickerFreeAgentsPage() {
   const [error, setError] = useState(null);
   const [modalContent, setModalContent] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [selectedPlayers, setSelectedPlayers] = useState(new Set());
 
   const fetchData = useCallback(async (currentLeagueId) => {
     if (!currentLeagueId) {
@@ -43,6 +44,7 @@ function FleaflickerFreeAgentsPage() {
   
     setLoading(true);
     setError(null);
+    setSelectedPlayers(new Set()); // Reset selection on new data fetch
     try {    
         const [fleaflickerData, fantasyCalcValues] = await Promise.all([
           get(`/api/fleaflicker/league/${currentLeagueId}/data`),
@@ -76,19 +78,15 @@ function FleaflickerFreeAgentsPage() {
           });
         }
   
-        // --- THIS IS THE FIX ---
-        // Create a lookup map from the fresh 1-QB values we just fetched.
         const fantasyCalcValuesMap = new Map(Object.entries(fantasyCalcValues));
 
         const finalFreeAgents = actualFreeAgents.map(player => {
           const analysis = analysisDataMap.get(String(player.sleeper_id));
-          // Look up the player in the new map to get the correct 1-QB trade value.
           const calcValueData = fantasyCalcValuesMap.get(cleanseName(player.full_name));
 
           return { 
                 ...player, 
                 ...analysis,
-                // Explicitly overwrite the value with the correct one from our live API call.
                 fantasy_calc_value: calcValueData?.value || 0 
           };
         });
@@ -99,7 +97,7 @@ function FleaflickerFreeAgentsPage() {
           .sort((a, b) => (b.fantasy_calc_value || 0) - (a.fantasy_calc_value || 0))
           .map((player, index) => ({
               ...player,
-              rank: index + 1 // Add the rank property
+              rank: index + 1
           }));
         
         setEnrichedFreeAgents(rankedFreeAgents);
@@ -116,6 +114,26 @@ function FleaflickerFreeAgentsPage() {
     fetchData(leagueId);
   }, [leagueId, fetchData]);
 
+  const handleSelectAll = (event) => {
+    if (event.target.checked) {
+        const allPlayerIds = new Set(enrichedFreeAgents.map(p => p.sleeper_id));
+        setSelectedPlayers(allPlayerIds);
+    } else {
+        setSelectedPlayers(new Set());
+    }
+  };
+
+  const handleSelectPlayer = (playerId) => {
+      setSelectedPlayers(prevSelected => {
+          const newSelected = new Set(prevSelected);
+          if (newSelected.has(playerId)) {
+              newSelected.delete(playerId);
+          } else {
+              newSelected.add(playerId);
+          }
+          return newSelected;
+      });
+  };
 
   if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
   if (error) return <div style={{...styles.pageContainer, ...styles.errorText}}>Error: {error}</div>;
@@ -129,6 +147,14 @@ function FleaflickerFreeAgentsPage() {
         <table style={styles.table}>
           <thead>
             <tr>
+              <th style={styles.th}>
+                <input 
+                    type="checkbox"
+                    onChange={handleSelectAll}
+                    checked={enrichedFreeAgents.length > 0 && selectedPlayers.size === enrichedFreeAgents.length}
+                    aria-label="Select all players"
+                />
+              </th>
               <th style={styles.th}>Rank</th>
               <th style={styles.th}>Full Name</th>
               <th style={styles.th}>Pos</th>
@@ -158,6 +184,14 @@ function FleaflickerFreeAgentsPage() {
                 onMouseLeave={() => setHoveredRow(null)}
                 style={hoveredRow === player.sleeper_id ? styles.trHover : {}}
               >
+                <td style={styles.td}>
+                    <input 
+                        type="checkbox"
+                        checked={selectedPlayers.has(player.sleeper_id)}
+                        onChange={() => handleSelectPlayer(player.sleeper_id)}
+                        aria-label={`Select ${player.full_name}`}
+                    />
+                </td>
                 <td style={{...styles.td, ...styles.valueCell}}>{player.rank}</td>
                 <td style={styles.td}>{player.full_name || 'N/A'}</td>
                 <td style={styles.td}>{player.position}</td>
