@@ -1,5 +1,3 @@
-// client/src/styles.js
-
 // --- Color Palette: Gray and Red Theme ---
 const colors = {
     primary: '#c82333', // A strong red for interactive elements
@@ -112,6 +110,12 @@ export const styles = {
     },
     trHover: {
         backgroundColor: colors.primaryMuted, // Style for hovering over table rows
+    },
+    // --- NEW STYLE ADDED HERE ---
+    trChecked: {
+        backgroundColor: colors.text, // Using the theme's near-black color
+        color: colors.background,    // Using the theme's light background for text
+        textDecoration: 'line-through',
     },
     // Specific cell styles
     valueCell: {

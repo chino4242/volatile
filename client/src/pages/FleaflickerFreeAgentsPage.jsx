@@ -177,66 +177,71 @@ function FleaflickerFreeAgentsPage() {
             </tr>
           </thead>
           <tbody>
-            {enrichedFreeAgents.map((player) => (
-              <tr 
-                key={player.sleeper_id}
-                onMouseEnter={() => setHoveredRow(player.sleeper_id)}
-                onMouseLeave={() => setHoveredRow(null)}
-                style={hoveredRow === player.sleeper_id ? styles.trHover : {}}
-              >
-                <td style={styles.td}>
-                    <input 
-                        type="checkbox"
-                        checked={selectedPlayers.has(player.sleeper_id)}
-                        onChange={() => handleSelectPlayer(player.sleeper_id)}
-                        aria-label={`Select ${player.full_name}`}
-                    />
-                </td>
-                <td style={{...styles.td, ...styles.valueCell}}>{player.rank}</td>
-                <td style={styles.td}>{player.full_name || 'N/A'}</td>
-                <td style={styles.td}>{player.position}</td>
-                <td style={styles.td}>{player.team || 'FA'}</td>
-                <td style={styles.td}>{player.age || 'N/A'}</td>
-                <td style={{...styles.td, ...styles.valueCell}}>{player.fantasy_calc_value}</td>
-                <td style={styles.td}>{player.overall_rank}</td>
-                <td style={styles.td}>{player.positional_rank}</td>
-                <td style={styles.td}>{player.tier}</td>
-                <td style={styles.td}>{player.zap_score}</td>
-                <td style={styles.td}>{player.depth_of_talent_score}</td>
-                <td style={styles.td}>{player.comparison_spectrum}</td>
-                <td style={styles.td}>{player.category}</td>
-                <td style={styles.td}>{player.draft_capital_delta}</td>
-                <td style={styles.td}>{player.rsp_pos_rank}</td>
-                <td style={styles.td}>{player.rsp_2023_2025_rank}</td>
-                <td style={styles.td}>{player.rp_2021_2025_rank}</td>
-                <td style={styles.td}>
-                  {(player.notes_lrqb || player.notes_rsp || player.depth_of_talent_desc) && (
-                      <button 
-                          onClick={() => setModalContent({
-                              title: `${player.full_name} - Analysis Notes`,
-                              body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}`
-                          })}
-                          style={styles.notesButton}
-                      >
-                          View
-                      </button>
-                  )}
-                </td>
-                <td style={styles.td}>
-                  {player.gemini_analysis && (
-                      <button 
-                          onClick={() => setModalContent({
-                              title: `${player.full_name} - AI Analysis`,
-                              body: player.gemini_analysis
-                          })}
-                          style={styles.notesButton}
-                      >
-                          View
-                      </button>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {enrichedFreeAgents.map((player) => {
+              const isChecked = selectedPlayers.has(player.sleeper_id);
+              const isHovered = hoveredRow === player.sleeper_id;
+              
+              return (
+                <tr 
+                  key={player.sleeper_id}
+                  onMouseEnter={() => setHoveredRow(player.sleeper_id)}
+                  onMouseLeave={() => setHoveredRow(null)}
+                  style={isChecked ? styles.trChecked : (isHovered ? styles.trHover : {})}
+                >
+                  <td style={styles.td}>
+                      <input 
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleSelectPlayer(player.sleeper_id)}
+                          aria-label={`Select ${player.full_name}`}
+                      />
+                  </td>
+                  <td style={{...styles.td, ...styles.valueCell}}>{player.rank}</td>
+                  <td style={styles.td}>{player.full_name || 'N/A'}</td>
+                  <td style={styles.td}>{player.position}</td>
+                  <td style={styles.td}>{player.team || 'FA'}</td>
+                  <td style={styles.td}>{player.age || 'N/A'}</td>
+                  <td style={{...styles.td, ...styles.valueCell}}>{player.fantasy_calc_value}</td>
+                  <td style={styles.td}>{player.overall_rank}</td>
+                  <td style={styles.td}>{player.positional_rank}</td>
+                  <td style={styles.td}>{player.tier}</td>
+                  <td style={styles.td}>{player.zap_score}</td>
+                  <td style={styles.td}>{player.depth_of_talent_score}</td>
+                  <td style={styles.td}>{player.comparison_spectrum}</td>
+                  <td style={styles.td}>{player.category}</td>
+                  <td style={styles.td}>{player.draft_capital_delta}</td>
+                  <td style={styles.td}>{player.rsp_pos_rank}</td>
+                  <td style={styles.td}>{player.rsp_2023_2025_rank}</td>
+                  <td style={styles.td}>{player.rp_2021_2025_rank}</td>
+                  <td style={styles.td}>
+                    {(player.notes_lrqb || player.notes_rsp || player.depth_of_talent_desc) && (
+                        <button 
+                            onClick={() => setModalContent({
+                                title: `${player.full_name} - Analysis Notes`,
+                                body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}`
+                            })}
+                            style={styles.notesButton}
+                        >
+                            View
+                        </button>
+                    )}
+                  </td>
+                  <td style={styles.td}>
+                    {player.gemini_analysis && (
+                        <button 
+                            onClick={() => setModalContent({
+                                title: `${player.full_name} - AI Analysis`,
+                                body: player.gemini_analysis
+                            })}
+                            style={styles.notesButton}
+                        >
+                            View
+                        </button>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
