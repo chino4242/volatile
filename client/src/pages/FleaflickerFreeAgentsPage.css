@@ -1,0 +1,148 @@
+* {
+    justify-content: center;
+}
+
+body {
+    background-color: rgb(181, 181, 181);
+}
+
+#rookies, #team th {
+  position: sticky;
+  top: 0; /* Stick to the top of the viewport */
+  background-color: #f2f2f2; /* Optional: Keep the header background */
+  z-index: 1; /* Ensure the header is above other content */
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.table {
+    text-align: center;
+}
+
+.dataframe {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .dataframe th, .dataframe td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: right;
+  }
+
+  .dataframe th {
+    background-color: #f2f2f2;
+  }
+
+  .elite {
+    background-color: green;
+    font-weight: bold;
+  }
+
+  .positive {
+    background-color: #c6efce; /* Light green */
+    font-weight: bold;
+  }
+
+  .negative {
+    background-color: #f8cbc0; /* Light red */
+  }
+
+  .neutral {
+      background-color: lightyellow;
+  }
+
+  .very-negative {
+    background-color: red;
+  }
+
+  .highlight {
+    font-weight: bold;
+  }
+
+  .top-five {
+    background-color: rgb(117, 21, 155);
+    color: white;
+    font-weight: bold;
+  }
+
+  .top-ten {
+    background-color: green;
+    font-weight: bold;
+  }
+
+  .top-twenty {
+    background-color: rgb(130, 111, 8);
+    font-weight: bold;
+  }
+  .selected {
+    text-decoration: line-through;
+    background-color: black;
+    color: white;
+  }
+  .filter-row input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .qb {
+    background-color: #9DE89F;
+  }
+
+  .wr {
+    background-color: #9BF6FF;
+  }
+
+  .rb {
+    background-color: #FFADAD;
+  }
+
+  .te {
+    background-color: #FFD6A5;
+  }
+
+  .super-buy {
+    background-color: gold;
+    font-weight: bold;
+  }
+
+.rare {
+  background-color: rgb(117, 21, 155);
+  color: white;
+  font-weight: bold;
+}
+
+.franchise {
+  background-color: rgb(117, 21, 155);
+  color: white;
+  font-weight: bold;
+}
+
+.starter {
+  background-color: green;
+}
+
+.rotational_starter {
+  background-color: #c6efce;
+}
+
+.contributor {
+  background-color: lightyellow;
+}
+
+.reserve {
+  background-color:  #f8cbc0;
+}
+
+#dataModal {
+  max-width: 50%;
+  max-height: 50%;
+  text-align: center;
+}
+
+td:nth-child(13) { /* Target the 13th column (Comp Spectrum) */
+    word-break: break-word;
+}
