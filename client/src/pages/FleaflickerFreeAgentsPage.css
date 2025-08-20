@@ -16,6 +16,9 @@
 .top-five, .elite { background-color: #e1eafb; font-weight: bold; } /* Light Blue/Purple */
 .top-ten { background-color: #e6f4e9; font-weight: bold; } /* Light Green */
 
+/* --- NEW: Trade Value Specific Tiers --- */
+.value-contributor { background-color: #f1f8e9; } /* Very Light Green Tint */
+
 /* --- ZAP Score Tiers --- */
 .zap-elite { background-color: #e1eafb; font-weight: bold; }
 .zap-great { background-color: #e6f4e9; font-weight: bold; }
@@ -33,7 +36,7 @@
 .category-elite { background-color: #fff8e1; font-weight: bold; } /* Light Gold/Cream */
 .category-starter { background-color: #e1eafb; font-weight: bold; } /* Light Blue/Purple */
 .category-flex { background-color: #e6f4e9; } /* Light Green */
-.category-bench { background-color: #ffeadb; } /* CHANGED: Light, distinct orange */
+.category-bench { background-color: #ffeadb; } /* Light, distinct orange */
 
 /* --- Row Selection Style --- */
 tr.selected td {

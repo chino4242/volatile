@@ -35,7 +35,7 @@ function FleaflickerFreeAgentsPage() {
     const [hoveredRow, setHoveredRow] = useState(null);
     const [selectedPlayers, setSelectedPlayers] = useState(new Set());
 
-    // --- HELPER FUNCTION FOR CONDITIONAL FORMATTING ---
+    // --- HELPER FUNCTION FOR CONDITIONAL FORMATTING (UPDATED) ---
     function getCellClassName(player, columnName) {
         let dynamicClass = '';
 
@@ -58,9 +58,11 @@ function FleaflickerFreeAgentsPage() {
             case 'Trade Value':
                 const value = player.fantasy_calc_value;
                 if (!value) break;
+                // --- UPDATED LOGIC HERE ---
                 if (value >= 7000) dynamicClass = 'super-elite';
                 else if (value >= 4000) dynamicClass = 'elite';
                 else if (value >= 3000) dynamicClass = 'positive';
+                else if (value >= 2000) dynamicClass = 'value-contributor'; // New Tier
                 else if (value >= 1000) dynamicClass = 'neutral';
                 break;
 
