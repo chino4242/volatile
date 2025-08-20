@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { get } from '../api/apiService';
 import { styles } from '../styles';
-import './FleaflickerFreeAgentsPage.css'; // Make sure this CSS file exists in the same folder
+import './FleaflickerFreeAgentsPage.css'; // Make sure this CSS file is updated
 
 const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
 
@@ -38,6 +38,7 @@ function FleaflickerFreeAgentsPage() {
     // --- HELPER FUNCTION FOR CONDITIONAL FORMATTING ---
     function getCellClassName(player, columnName) {
         let dynamicClass = '';
+
         switch (columnName) {
             case 'Full Name':
                 const position = player.position?.toLowerCase();
@@ -45,6 +46,7 @@ function FleaflickerFreeAgentsPage() {
                     dynamicClass = position;
                 }
                 break;
+            
             case 'Pos Rk':
                 const rank = player.positional_rank;
                 if (!rank) break;
@@ -52,15 +54,45 @@ function FleaflickerFreeAgentsPage() {
                 else if (rank <= 10) dynamicClass = 'top-ten';
                 else if (rank <= 20) dynamicClass = 'positive';
                 break;
+
             case 'Trade Value':
                 const value = player.fantasy_calc_value;
                 if (!value) break;
-                if (value >= 7000) dynamicClass = 'top-five';
+                if (value >= 7000) dynamicClass = 'super-elite';
                 else if (value >= 4000) dynamicClass = 'elite';
                 else if (value >= 3000) dynamicClass = 'positive';
                 else if (value >= 1000) dynamicClass = 'neutral';
                 break;
+
+            case 'ZAP':
+                const zap = player.zap_score;
+                if (zap === null || zap === undefined) break;
+                if (zap >= 95) dynamicClass = 'zap-elite';
+                else if (zap >= 85) dynamicClass = 'zap-great';
+                else if (zap >= 75) dynamicClass = 'zap-good';
+                else if (zap >= 60) dynamicClass = 'zap-average';
+                break;
+
+            case 'Depth Score':
+                const depth = player.depth_of_talent_score;
+                if (depth === null || depth === undefined) break;
+                if (depth >= 95) dynamicClass = 'depth-elite';
+                else if (depth >= 88) dynamicClass = 'depth-starter';
+                else if (depth >= 80) dynamicClass = 'depth-rotational';
+                else if (depth >= 75) dynamicClass = 'depth-bench';
+                else if (depth < 75) dynamicClass = 'depth-practice-squad';
+                break;
+            
+            case 'Category':
+                const category = player.category?.trim().toLowerCase();
+                if (!category) break;
+                if (category === 'elite producer') dynamicClass = 'category-elite';
+                else if (category === 'weekly starter') dynamicClass = 'category-starter';
+                else if (category === 'flex play') dynamicClass = 'category-flex';
+                else if (category === 'benchwarmer') dynamicClass = 'category-bench';
+                break;
         }
+        
         return dynamicClass;
     }
 
@@ -164,12 +196,11 @@ function FleaflickerFreeAgentsPage() {
         });
     };
 
-    // --- NEW STYLE OBJECT FOR THE WRAPPING COLUMN ---
     const compSpectrumStyle = {
-        whiteSpace: 'normal',   // Allows text to wrap
-        wordBreak: 'break-word',  // Breaks long words if necessary
-        maxWidth: '250px',        // Limits the maximum width of the column
-        minWidth: '150px',        // Ensures the column doesn't get too narrow
+        whiteSpace: 'normal',
+        wordBreak: 'break-word',
+        maxWidth: '250px',
+        minWidth: '150px',
     };
 
     if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
@@ -184,14 +215,7 @@ function FleaflickerFreeAgentsPage() {
                 <table style={styles.table}>
                     <thead>
                         <tr>
-                            <th style={styles.th}>
-                                <input 
-                                    type="checkbox"
-                                    onChange={handleSelectAll}
-                                    checked={enrichedFreeAgents.length > 0 && selectedPlayers.size === enrichedFreeAgents.length}
-                                    aria-label="Select all players"
-                                />
-                            </th>
+                            <th style={styles.th}><input type="checkbox" onChange={handleSelectAll} checked={enrichedFreeAgents.length > 0 && selectedPlayers.size === enrichedFreeAgents.length} aria-label="Select all players"/></th>
                             <th style={styles.th}>Rank</th>
                             <th style={styles.th}>Full Name</th>
                             <th style={styles.th}>Pos</th>
@@ -203,9 +227,8 @@ function FleaflickerFreeAgentsPage() {
                             <th style={styles.th}>Tier</th>
                             <th style={styles.th}>ZAP</th>
                             <th style={styles.th}>Depth Score</th>
-                            {/* --- STYLE APPLIED TO HEADER --- */}
-                            <th style={{...styles.th, ...compSpectrumStyle}}>Comp Spectrum</th>
                             <th style={{...styles.th, minWidth: '150px'}}>Category</th>
+                            <th style={{...styles.th, ...compSpectrumStyle}}>Comp Spectrum</th>
                             <th style={{...styles.th, minWidth: '150px'}}>Draft Delta</th>
                             <th style={styles.th}>RSP Pos Rk</th>
                             <th style={styles.th}>RSP 23-25</th>
@@ -228,14 +251,7 @@ function FleaflickerFreeAgentsPage() {
                                     style={rowStyle}
                                     className={isChecked ? 'selected' : ''} 
                                 >
-                                    <td style={styles.td}>
-                                        <input 
-                                            type="checkbox"
-                                            checked={isChecked}
-                                            onChange={() => handleSelectPlayer(player.sleeper_id)}
-                                            aria-label={`Select ${player.full_name}`}
-                                        />
-                                    </td>
+                                    <td style={styles.td}><input type="checkbox" checked={isChecked} onChange={() => handleSelectPlayer(player.sleeper_id)} aria-label={`Select ${player.full_name}`}/></td>
                                     <td style={{...styles.td, ...styles.valueCell}}>{player.rank}</td>
                                     <td style={styles.td} className={getCellClassName(player, 'Full Name')}>{player.full_name || 'N/A'}</td>
                                     <td style={styles.td}>{player.position}</td>
@@ -245,39 +261,22 @@ function FleaflickerFreeAgentsPage() {
                                     <td style={styles.td}>{player.overall_rank}</td>
                                     <td style={styles.td} className={getCellClassName(player, 'Pos Rk')}>{player.positional_rank}</td>
                                     <td style={styles.td}>{player.tier}</td>
-                                    <td style={styles.td}>{player.zap_score}</td>
-                                    <td style={styles.td}>{player.depth_of_talent_score}</td>
-                                    {/* --- STYLE APPLIED TO CELL --- */}
+                                    <td style={styles.td} className={getCellClassName(player, 'ZAP')}>{player.zap_score}</td>
+                                    <td style={styles.td} className={getCellClassName(player, 'Depth Score')}>{player.depth_of_talent_score}</td>
+                                    <td style={styles.td} className={getCellClassName(player, 'Category')}>{player.category}</td>
                                     <td style={{...styles.td, ...compSpectrumStyle}}>{player.comparison_spectrum}</td>
-                                    <td style={styles.td}>{player.category}</td>
                                     <td style={styles.td}>{player.draft_capital_delta}</td>
                                     <td style={styles.td}>{player.rsp_pos_rank}</td>
                                     <td style={styles.td}>{player.rsp_2023_2025_rank}</td>
                                     <td style={styles.td}>{player.rp_2021_2025_rank}</td>
                                     <td style={styles.td}>
                                         {(player.notes_lrqb || player.notes_rsp || player.depth_of_talent_desc) && (
-                                            <button 
-                                                onClick={() => setModalContent({
-                                                    title: `${player.full_name} - Analysis Notes`,
-                                                    body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}`
-                                                })}
-                                                style={styles.notesButton}
-                                            >
-                                                View
-                                            </button>
+                                            <button onClick={() => setModalContent({ title: `${player.full_name} - Analysis Notes`, body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}`})} style={styles.notesButton}>View</button>
                                         )}
                                     </td>
                                     <td style={styles.td}>
                                         {player.gemini_analysis && (
-                                            <button 
-                                                onClick={() => setModalContent({
-                                                    title: `${player.full_name} - AI Analysis`,
-                                                    body: player.gemini_analysis
-                                                })}
-                                                style={styles.notesButton}
-                                            >
-                                                View
-                                            </button>
+                                            <button onClick={() => setModalContent({ title: `${player.full_name} - AI Analysis`, body: player.gemini_analysis })} style={styles.notesButton}>View</button>
                                         )}
                                     </td>
                                 </tr>
@@ -289,12 +288,7 @@ function FleaflickerFreeAgentsPage() {
 
             {modalContent && (
                 <Modal 
-                    content={
-                        <>
-                            <h2 style={styles.h2}>{modalContent.title}</h2>
-                            <div style={styles.modalBody}>{modalContent.body}</div>
-                        </>
-                    } 
+                    content={<><h2 style={styles.h2}>{modalContent.title}</h2><div style={styles.modalBody}>{modalContent.body}</div></>} 
                     onClose={() => setModalContent(null)} 
                 />
             )}

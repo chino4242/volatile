@@ -1,148 +1,46 @@
-* {
-    justify-content: center;
-}
+/* FleaflickerFreeAgentsPage.css */
 
-body {
-    background-color: rgb(181, 181, 181);
-}
+/* --- Positional Color Coding --- */
+.qb { background-color: #dceddc; } /* Muted green */
+.wr { background-color: #dbeff2; } /* Muted blue */
+.rb { background-color: #f7e2e2; } /* Muted red */
+.te { background-color: #fcecdb; } /* Muted orange */
 
-#rookies, #team th {
-  position: sticky;
-  top: 0; /* Stick to the top of the viewport */
-  background-color: #f2f2f2; /* Optional: Keep the header background */
-  z-index: 1; /* Ensure the header is above other content */
-}
+/* --- General Formatting Classes --- */
+.positive { background-color: #e6f4e9; } /* Light Green */
+.negative { background-color: #fce8e6; } /* Light Red */
+.neutral { background-color: #fef7e0; } /* Light Yellow */
 
-table {
-  border-collapse: collapse;
-  width: 100%;
-}
+/* --- Ranking & Tier Classes --- */
+.super-elite { background-color: #fff8e1; font-weight: bold; } /* Light Gold/Cream */
+.top-five, .elite { background-color: #e1eafb; font-weight: bold; } /* Light Blue/Purple */
+.top-ten { background-color: #e6f4e9; font-weight: bold; } /* Light Green */
 
-.table {
-    text-align: center;
-}
+/* --- ZAP Score Tiers --- */
+.zap-elite { background-color: #e1eafb; font-weight: bold; }
+.zap-great { background-color: #e6f4e9; font-weight: bold; }
+.zap-good { background-color: #f1f8e9; }
+.zap-average { background-color: #fef7e0; }
 
-.dataframe {
-    border-collapse: collapse;
-    width: 100%;
-  }
+/* --- Depth Score Tiers --- */
+.depth-elite { background-color: #e1eafb; font-weight: bold; }
+.depth-starter { background-color: #e6f4e9; font-weight: bold; }
+.depth-rotational { background-color: #f1f8e9; }
+.depth-bench { background-color: #fef7e0; }
+.depth-practice-squad { background-color: #fce8e6; }
 
-  .dataframe th, .dataframe td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: right;
-  }
+/* --- Category Tiers --- */
+.category-elite { background-color: #fff8e1; font-weight: bold; } /* Light Gold/Cream */
+.category-starter { background-color: #e1eafb; font-weight: bold; } /* Light Blue/Purple */
+.category-flex { background-color: #e6f4e9; } /* Light Green */
+.category-bench { background-color: #ffeadb; } /* CHANGED: Light, distinct orange */
 
-  .dataframe th {
-    background-color: #f2f2f2;
-  }
-
-  .elite {
-    background-color: green;
-    font-weight: bold;
-  }
-
-  .positive {
-    background-color: #c6efce; /* Light green */
-    font-weight: bold;
-  }
-
-  .negative {
-    background-color: #f8cbc0; /* Light red */
-  }
-
-  .neutral {
-      background-color: lightyellow;
-  }
-
-  .very-negative {
-    background-color: red;
-  }
-
-  .highlight {
-    font-weight: bold;
-  }
-
-  .top-five {
-    background-color: rgb(117, 21, 155);
-    color: white;
-    font-weight: bold;
-  }
-
-  .top-ten {
-    background-color: green;
-    font-weight: bold;
-  }
-
-  .top-twenty {
-    background-color: rgb(130, 111, 8);
-    font-weight: bold;
-  }
-  .selected {
-    text-decoration: line-through;
+/* --- Row Selection Style --- */
+tr.selected td {
     background-color: black;
     color: white;
-  }
-  .filter-row input {
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .qb {
-    background-color: #9DE89F;
-  }
-
-  .wr {
-    background-color: #9BF6FF;
-  }
-
-  .rb {
-    background-color: #FFADAD;
-  }
-
-  .te {
-    background-color: #FFD6A5;
-  }
-
-  .super-buy {
-    background-color: gold;
-    font-weight: bold;
-  }
-
-.rare {
-  background-color: rgb(117, 21, 155);
-  color: white;
-  font-weight: bold;
+    text-decoration: line-through;
 }
-
-.franchise {
-  background-color: rgb(117, 21, 155);
-  color: white;
-  font-weight: bold;
-}
-
-.starter {
-  background-color: green;
-}
-
-.rotational_starter {
-  background-color: #c6efce;
-}
-
-.contributor {
-  background-color: lightyellow;
-}
-
-.reserve {
-  background-color:  #f8cbc0;
-}
-
-#dataModal {
-  max-width: 50%;
-  max-height: 50%;
-  text-align: center;
-}
-
-td:nth-child(13) { /* Target the 13th column (Comp Spectrum) */
-    word-break: break-word;
+tr.selected td input[type="checkbox"] {
+    accent-color: gold;
 }
