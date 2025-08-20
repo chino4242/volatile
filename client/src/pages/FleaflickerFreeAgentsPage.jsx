@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { get } from '../api/apiService';
 import { styles } from '../styles';
-import './FleaflickerFreeAgentsPage.css'; // Make sure this CSS file is updated
+import './FleaflickerFreeAgentsPage.css';
 
 const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
 
@@ -34,19 +34,17 @@ function FleaflickerFreeAgentsPage() {
     const [modalContent, setModalContent] = useState(null);
     const [hoveredRow, setHoveredRow] = useState(null);
     const [selectedPlayers, setSelectedPlayers] = useState(new Set());
+    // --- NEW: State for managing sorting ---
+    const [sortConfig, setSortConfig] = useState({ key: 'fantasy_calc_value', direction: 'descending' });
 
-    // --- HELPER FUNCTION FOR CONDITIONAL FORMATTING (UPDATED) ---
+    // --- HELPER FUNCTION FOR CONDITIONAL FORMATTING ---
     function getCellClassName(player, columnName) {
         let dynamicClass = '';
-
         switch (columnName) {
             case 'Full Name':
                 const position = player.position?.toLowerCase();
-                if (['qb', 'rb', 'wr', 'te'].includes(position)) {
-                    dynamicClass = position;
-                }
+                if (['qb', 'rb', 'wr', 'te'].includes(position)) dynamicClass = position;
                 break;
-            
             case 'Pos Rk':
                 const rank = player.positional_rank;
                 if (!rank) break;
@@ -54,18 +52,15 @@ function FleaflickerFreeAgentsPage() {
                 else if (rank <= 10) dynamicClass = 'top-ten';
                 else if (rank <= 20) dynamicClass = 'positive';
                 break;
-
             case 'Trade Value':
                 const value = player.fantasy_calc_value;
                 if (!value) break;
-                // --- UPDATED LOGIC HERE ---
                 if (value >= 7000) dynamicClass = 'super-elite';
                 else if (value >= 4000) dynamicClass = 'elite';
                 else if (value >= 3000) dynamicClass = 'positive';
-                else if (value >= 2000) dynamicClass = 'value-contributor'; // New Tier
+                else if (value >= 2000) dynamicClass = 'value-contributor';
                 else if (value >= 1000) dynamicClass = 'neutral';
                 break;
-
             case 'ZAP':
                 const zap = player.zap_score;
                 if (zap === null || zap === undefined) break;
@@ -74,7 +69,6 @@ function FleaflickerFreeAgentsPage() {
                 else if (zap >= 75) dynamicClass = 'zap-good';
                 else if (zap >= 60) dynamicClass = 'zap-average';
                 break;
-
             case 'Depth Score':
                 const depth = player.depth_of_talent_score;
                 if (depth === null || depth === undefined) break;
@@ -84,7 +78,6 @@ function FleaflickerFreeAgentsPage() {
                 else if (depth >= 75) dynamicClass = 'depth-bench';
                 else if (depth < 75) dynamicClass = 'depth-practice-squad';
                 break;
-            
             case 'Category':
                 const category = player.category?.trim().toLowerCase();
                 if (!category) break;
@@ -94,7 +87,6 @@ function FleaflickerFreeAgentsPage() {
                 else if (category === 'benchwarmer') dynamicClass = 'category-bench';
                 break;
         }
-        
         return dynamicClass;
     }
 
@@ -104,7 +96,6 @@ function FleaflickerFreeAgentsPage() {
             setLoading(false);
             return;
         }
-    
         setLoading(true);
         setError(null);
         setSelectedPlayers(new Set());
@@ -113,18 +104,14 @@ function FleaflickerFreeAgentsPage() {
                 get(`/api/fleaflicker/league/${currentLeagueId}/data`),
                 get(`/api/values/fantasycalc?isDynasty=true&numQbs=1&ppr=0.5`)
             ]);
-            
             const masterPlayerList = fleaflickerData.master_player_list || [];
             const rosteredPlayerNames = new Set();
             fleaflickerData.rosters.forEach(roster => {
                 roster.players.forEach(player => rosteredPlayerNames.add(cleanseName(player.full_name)))
             });
-            
             const actualFreeAgents = masterPlayerList.filter(p => !rosteredPlayerNames.has(cleanseName(p.full_name)));
-    
             const playerIds = actualFreeAgents.map(p => p.sleeper_id);
             let analysisDataMap = new Map();
-    
             if (playerIds.length > 0) {
                 const analysisResponse = await fetch(`${PYTHON_API_BASE_URL}/api/enriched-players/batch`, {
                     method: 'POST',
@@ -132,7 +119,6 @@ function FleaflickerFreeAgentsPage() {
                     body: JSON.stringify({ sleeper_ids: playerIds })
                 });
                 if (!analysisResponse.ok) throw new Error(`Python API error: ${analysisResponse.status}`);
-                
                 const analysisPlayers = await analysisResponse.json();
                 analysisPlayers.forEach(player => {
                     if (player?.sleeper_id && !player.error) {
@@ -140,31 +126,21 @@ function FleaflickerFreeAgentsPage() {
                     }
                 });
             }
-    
             const fantasyCalcValuesMap = new Map(Object.entries(fantasyCalcValues));
-
             const finalFreeAgents = actualFreeAgents.map(player => {
                 const analysis = analysisDataMap.get(String(player.sleeper_id));
                 const calcValueData = fantasyCalcValuesMap.get(cleanseName(player.full_name));
-
                 return { 
                     ...player, 
                     ...analysis,
                     fantasy_calc_value: calcValueData?.value || 0 
                 };
             });
-    
             const skillPositions = ['QB', 'WR', 'RB', 'TE'];
             const rankedFreeAgents = finalFreeAgents
                 .filter(p => skillPositions.includes(p.position) && p.fantasy_calc_value > 0)
-                .sort((a, b) => (b.fantasy_calc_value || 0) - (a.fantasy_calc_value || 0))
-                .map((player, index) => ({
-                    ...player,
-                    rank: index + 1
-                }));
-            
+                .map((player, index) => ({ ...player, rank: index + 1 }));
             setEnrichedFreeAgents(rankedFreeAgents);
-    
         } catch (e) {
             console.error("Failed to fetch Fleaflicker page data:", e);
             setError(e.message);
@@ -176,6 +152,35 @@ function FleaflickerFreeAgentsPage() {
     useEffect(() => {
         fetchData(leagueId);
     }, [leagueId, fetchData]);
+
+    // --- NEW: Memoized sorting logic ---
+    const sortedFreeAgents = useMemo(() => {
+        let sortableItems = [...enrichedFreeAgents];
+        if (sortConfig.key !== null) {
+            sortableItems.sort((a, b) => {
+                const aValue = a[sortConfig.key] === null || a[sortConfig.key] === undefined ? -Infinity : a[sortConfig.key];
+                const bValue = b[sortConfig.key] === null || b[sortConfig.key] === undefined ? -Infinity : b[sortConfig.key];
+
+                if (aValue < bValue) {
+                    return sortConfig.direction === 'ascending' ? -1 : 1;
+                }
+                if (aValue > bValue) {
+                    return sortConfig.direction === 'ascending' ? 1 : -1;
+                }
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [enrichedFreeAgents, sortConfig]);
+
+    // --- NEW: Function to handle sort requests ---
+    const requestSort = (key) => {
+        let direction = 'descending';
+        if (sortConfig.key === key && sortConfig.direction === 'descending') {
+            direction = 'ascending';
+        }
+        setSortConfig({ key, direction });
+    };
 
     const handleSelectAll = (event) => {
         if (event.target.checked) {
@@ -189,11 +194,8 @@ function FleaflickerFreeAgentsPage() {
     const handleSelectPlayer = (playerId) => {
         setSelectedPlayers(prevSelected => {
             const newSelected = new Set(prevSelected);
-            if (newSelected.has(playerId)) {
-                newSelected.delete(playerId);
-            } else {
-                newSelected.add(playerId);
-            }
+            if (newSelected.has(playerId)) newSelected.delete(playerId);
+            else newSelected.add(playerId);
             return newSelected;
         });
     };
@@ -203,6 +205,17 @@ function FleaflickerFreeAgentsPage() {
         wordBreak: 'break-word',
         maxWidth: '250px',
         minWidth: '150px',
+    };
+
+    // --- NEW: Helper to render sortable headers ---
+    const SortableHeader = ({ children, columnKey }) => {
+        const isSorted = sortConfig.key === columnKey;
+        const sortIcon = isSorted ? (sortConfig.direction === 'ascending' ? ' ▲' : ' ▼') : '';
+        return (
+            <th style={styles.th} onClick={() => requestSort(columnKey)} className="sortable-header">
+                {children}{sortIcon}
+            </th>
+        );
     };
 
     if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
@@ -223,12 +236,12 @@ function FleaflickerFreeAgentsPage() {
                             <th style={styles.th}>Pos</th>
                             <th style={styles.th}>Team</th>
                             <th style={styles.th}>Age</th>
-                            <th style={styles.th}>Trade Value</th>
-                            <th style={styles.th}>Overall Rk</th>
+                            <SortableHeader columnKey="fantasy_calc_value">Trade Value</SortableHeader>
+                            <SortableHeader columnKey="overall_rank">Overall Rk</SortableHeader>
                             <th style={styles.th}>Pos Rk</th>
                             <th style={styles.th}>Tier</th>
-                            <th style={styles.th}>ZAP</th>
-                            <th style={styles.th}>Depth Score</th>
+                            <SortableHeader columnKey="zap_score">ZAP</SortableHeader>
+                            <SortableHeader columnKey="depth_of_talent_score">Depth Score</SortableHeader>
                             <th style={{...styles.th, minWidth: '150px'}}>Category</th>
                             <th style={{...styles.th, ...compSpectrumStyle}}>Comp Spectrum</th>
                             <th style={{...styles.th, minWidth: '150px'}}>Draft Delta</th>
@@ -240,7 +253,7 @@ function FleaflickerFreeAgentsPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {enrichedFreeAgents.map((player) => {
+                        {sortedFreeAgents.map((player) => {
                             const isChecked = selectedPlayers.has(player.sleeper_id);
                             const isHovered = hoveredRow === player.sleeper_id;
                             const rowStyle = isChecked ? {} : (isHovered ? styles.trHover : {});
