@@ -34,8 +34,7 @@ function FleaflickerFreeAgentsPage() {
     const [modalContent, setModalContent] = useState(null);
     const [hoveredRow, setHoveredRow] = useState(null);
     const [selectedPlayers, setSelectedPlayers] = useState(new Set());
-    // --- NEW: State for managing sorting ---
-    const [sortConfig, setSortConfig] = useState({ key: 'fantasy_calc_value', direction: 'descending' });
+    const [sortConfig, setSortConfig] = useState({ key: 'rank', direction: 'ascending' }); // Default sort by our new rank
 
     // --- HELPER FUNCTION FOR CONDITIONAL FORMATTING ---
     function getCellClassName(player, columnName) {
@@ -136,10 +135,18 @@ function FleaflickerFreeAgentsPage() {
                     fantasy_calc_value: calcValueData?.value || 0 
                 };
             });
+            
             const skillPositions = ['QB', 'WR', 'RB', 'TE'];
             const rankedFreeAgents = finalFreeAgents
                 .filter(p => skillPositions.includes(p.position) && p.fantasy_calc_value > 0)
-                .map((player, index) => ({ ...player, rank: index + 1 }));
+                // --- THIS IS THE FIX ---
+                // Re-add the initial sort by trade value before assigning the rank
+                .sort((a, b) => (b.fantasy_calc_value || 0) - (a.fantasy_calc_value || 0))
+                .map((player, index) => ({
+                    ...player,
+                    rank: index + 1 // Now rank is correctly based on the sorted trade value
+                }));
+            
             setEnrichedFreeAgents(rankedFreeAgents);
         } catch (e) {
             console.error("Failed to fetch Fleaflicker page data:", e);
@@ -153,7 +160,6 @@ function FleaflickerFreeAgentsPage() {
         fetchData(leagueId);
     }, [leagueId, fetchData]);
 
-    // --- NEW: Memoized sorting logic ---
     const sortedFreeAgents = useMemo(() => {
         let sortableItems = [...enrichedFreeAgents];
         if (sortConfig.key !== null) {
@@ -173,11 +179,13 @@ function FleaflickerFreeAgentsPage() {
         return sortableItems;
     }, [enrichedFreeAgents, sortConfig]);
 
-    // --- NEW: Function to handle sort requests ---
     const requestSort = (key) => {
-        let direction = 'descending';
-        if (sortConfig.key === key && sortConfig.direction === 'descending') {
-            direction = 'ascending';
+        let direction = 'ascending';
+        // If sorting the same key, toggle direction. Otherwise, default to ascending for ranks and descending for scores.
+        if (sortConfig.key === key) {
+            direction = sortConfig.direction === 'ascending' ? 'descending' : 'ascending';
+        } else {
+            direction = ['rank', 'overall_rank'].includes(key) ? 'ascending' : 'descending';
         }
         setSortConfig({ key, direction });
     };
@@ -207,7 +215,6 @@ function FleaflickerFreeAgentsPage() {
         minWidth: '150px',
     };
 
-    // --- NEW: Helper to render sortable headers ---
     const SortableHeader = ({ children, columnKey }) => {
         const isSorted = sortConfig.key === columnKey;
         const sortIcon = isSorted ? (sortConfig.direction === 'ascending' ? ' ▲' : ' ▼') : '';
@@ -231,7 +238,7 @@ function FleaflickerFreeAgentsPage() {
                     <thead>
                         <tr>
                             <th style={styles.th}><input type="checkbox" onChange={handleSelectAll} checked={enrichedFreeAgents.length > 0 && selectedPlayers.size === enrichedFreeAgents.length} aria-label="Select all players"/></th>
-                            <th style={styles.th}>Rank</th>
+                            <SortableHeader columnKey="rank">Rank</SortableHeader>
                             <th style={styles.th}>Full Name</th>
                             <th style={styles.th}>Pos</th>
                             <th style={styles.th}>Team</th>
