@@ -16,7 +16,7 @@
 .top-five, .elite { background-color: #e1eafb; font-weight: bold; } /* Light Blue/Purple */
 .top-ten { background-color: #e6f4e9; font-weight: bold; } /* Light Green */
 
-/* --- NEW: Trade Value Specific Tiers --- */
+/* --- Trade Value Specific Tiers --- */
 .value-contributor { background-color: #f1f8e9; } /* Very Light Green Tint */
 
 /* --- ZAP Score Tiers --- */
@@ -38,6 +38,10 @@
 .category-flex { background-color: #e6f4e9; } /* Light Green */
 .category-bench { background-color: #ffeadb; } /* Light, distinct orange */
 
+/* --- NEW: Redraft Rank Tiers --- */
+.redraft-top-tier { background-color: #e1eafb; font-weight: bold; } /* Light Blue/Purple */
+.redraft-strong-starter { background-color: #e6f4e9; font-weight: bold; } /* Light Green */
+
 /* --- Row Selection Style --- */
 tr.selected td {
     background-color: black;
@@ -46,4 +50,12 @@ tr.selected td {
 }
 tr.selected td input[type="checkbox"] {
     accent-color: gold;
+}
+
+/* --- Sortable Header Style --- */
+.sortable-header {
+    cursor: pointer;
+}
+.sortable-header:hover {
+    background-color: #e9ecef; /* A light gray hover effect */
 }

@@ -25,6 +25,14 @@ function cleanseName(name) {
     return name.replace(/[^\w\s']+/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
+// Helper function to parse auction values like "$63" into numbers
+function parseAuctionValue(value) {
+    if (typeof value === 'string') {
+        return Number(value.replace(/[^0-9.-]+/g,""));
+    }
+    return value;
+}
+
 function FleaflickerFreeAgentsPage() {
     const { leagueId } = useParams();
   
@@ -34,9 +42,9 @@ function FleaflickerFreeAgentsPage() {
     const [modalContent, setModalContent] = useState(null);
     const [hoveredRow, setHoveredRow] = useState(null);
     const [selectedPlayers, setSelectedPlayers] = useState(new Set());
-    const [sortConfig, setSortConfig] = useState({ key: 'rank', direction: 'ascending' }); // Default sort by our new rank
+    const [sortConfig, setSortConfig] = useState({ key: 'rank', direction: 'ascending' });
 
-    // --- HELPER FUNCTION FOR CONDITIONAL FORMATTING ---
+    // --- HELPER FUNCTION FOR CONDITIONAL FORMATTING (UPDATED) ---
     function getCellClassName(player, columnName) {
         let dynamicClass = '';
         switch (columnName) {
@@ -85,6 +93,19 @@ function FleaflickerFreeAgentsPage() {
                 else if (category === 'flex play') dynamicClass = 'category-flex';
                 else if (category === 'benchwarmer') dynamicClass = 'category-bench';
                 break;
+            // --- NEW: Logic for Redraft Ranks ---
+            case 'Redraft Rank':
+                const redraftRank = player.redraft_overall_rank;
+                if (!redraftRank) break;
+                if (redraftRank <= 24) dynamicClass = 'redraft-top-tier';
+                else if (redraftRank <= 60) dynamicClass = 'redraft-strong-starter';
+                break;
+             case 'Redraft Pos Rank':
+                const redraftPosRank = player.redraft_pos_rank;
+                if (!redraftPosRank) break;
+                if (redraftPosRank <= 12) dynamicClass = 'redraft-top-tier';
+                else if (redraftPosRank <= 24) dynamicClass = 'redraft-strong-starter';
+                break;
         }
         return dynamicClass;
     }
@@ -98,19 +119,23 @@ function FleaflickerFreeAgentsPage() {
         setLoading(true);
         setError(null);
         setSelectedPlayers(new Set());
-        try {    
+        try {
             const [fleaflickerData, fantasyCalcValues] = await Promise.all([
                 get(`/api/fleaflicker/league/${currentLeagueId}/data`),
                 get(`/api/values/fantasycalc?isDynasty=true&numQbs=1&ppr=0.5`)
             ]);
+            
             const masterPlayerList = fleaflickerData.master_player_list || [];
             const rosteredPlayerNames = new Set();
             fleaflickerData.rosters.forEach(roster => {
                 roster.players.forEach(player => rosteredPlayerNames.add(cleanseName(player.full_name)))
             });
+            
             const actualFreeAgents = masterPlayerList.filter(p => !rosteredPlayerNames.has(cleanseName(p.full_name)));
+    
             const playerIds = actualFreeAgents.map(p => p.sleeper_id);
             let analysisDataMap = new Map();
+    
             if (playerIds.length > 0) {
                 const analysisResponse = await fetch(`${PYTHON_API_BASE_URL}/api/enriched-players/batch`, {
                     method: 'POST',
@@ -118,6 +143,7 @@ function FleaflickerFreeAgentsPage() {
                     body: JSON.stringify({ sleeper_ids: playerIds })
                 });
                 if (!analysisResponse.ok) throw new Error(`Python API error: ${analysisResponse.status}`);
+                
                 const analysisPlayers = await analysisResponse.json();
                 analysisPlayers.forEach(player => {
                     if (player?.sleeper_id && !player.error) {
@@ -125,29 +151,31 @@ function FleaflickerFreeAgentsPage() {
                     }
                 });
             }
+    
             const fantasyCalcValuesMap = new Map(Object.entries(fantasyCalcValues));
+
             const finalFreeAgents = actualFreeAgents.map(player => {
                 const analysis = analysisDataMap.get(String(player.sleeper_id));
                 const calcValueData = fantasyCalcValuesMap.get(cleanseName(player.full_name));
+
                 return { 
                     ...player, 
                     ...analysis,
                     fantasy_calc_value: calcValueData?.value || 0 
                 };
             });
-            
+    
             const skillPositions = ['QB', 'WR', 'RB', 'TE'];
             const rankedFreeAgents = finalFreeAgents
                 .filter(p => skillPositions.includes(p.position) && p.fantasy_calc_value > 0)
-                // --- THIS IS THE FIX ---
-                // Re-add the initial sort by trade value before assigning the rank
                 .sort((a, b) => (b.fantasy_calc_value || 0) - (a.fantasy_calc_value || 0))
                 .map((player, index) => ({
                     ...player,
-                    rank: index + 1 // Now rank is correctly based on the sorted trade value
+                    rank: index + 1
                 }));
             
             setEnrichedFreeAgents(rankedFreeAgents);
+
         } catch (e) {
             console.error("Failed to fetch Fleaflicker page data:", e);
             setError(e.message);
@@ -164,15 +192,22 @@ function FleaflickerFreeAgentsPage() {
         let sortableItems = [...enrichedFreeAgents];
         if (sortConfig.key !== null) {
             sortableItems.sort((a, b) => {
-                const aValue = a[sortConfig.key] === null || a[sortConfig.key] === undefined ? -Infinity : a[sortConfig.key];
-                const bValue = b[sortConfig.key] === null || b[sortConfig.key] === undefined ? -Infinity : b[sortConfig.key];
+                let aValue = a[sortConfig.key];
+                let bValue = b[sortConfig.key];
 
-                if (aValue < bValue) {
-                    return sortConfig.direction === 'ascending' ? -1 : 1;
+                if (sortConfig.key === 'redraft_auction_value') {
+                    aValue = parseAuctionValue(aValue);
+                    bValue = parseAuctionValue(bValue);
                 }
-                if (aValue > bValue) {
-                    return sortConfig.direction === 'ascending' ? 1 : -1;
-                }
+                
+                const aIsNull = aValue === null || aValue === undefined;
+                const bIsNull = bValue === null || bValue === undefined;
+
+                if (aIsNull) return 1;
+                if (bIsNull) return -1;
+
+                if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+                if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
                 return 0;
             });
         }
@@ -181,11 +216,13 @@ function FleaflickerFreeAgentsPage() {
 
     const requestSort = (key) => {
         let direction = 'ascending';
-        // If sorting the same key, toggle direction. Otherwise, default to ascending for ranks and descending for scores.
         if (sortConfig.key === key) {
             direction = sortConfig.direction === 'ascending' ? 'descending' : 'ascending';
         } else {
-            direction = ['rank', 'overall_rank'].includes(key) ? 'ascending' : 'descending';
+            // Ranks/Tiers should start ascending, values/scores descending
+            direction = ['rank', 'overall_rank', 'redraft_overall_rank', 'redraft_pos_rank', 'redraft_tier'].includes(key) 
+                ? 'ascending' 
+                : 'descending';
         }
         setSortConfig({ key, direction });
     };
@@ -231,30 +268,26 @@ function FleaflickerFreeAgentsPage() {
     return (
         <div style={styles.pageContainer}>
             <h1 style={styles.h1}>Top Fleaflicker Free Agents</h1>
-            <p style={styles.p}>Found {enrichedFreeAgents.length} relevant players for league {leagueId}, sorted by trade value.</p>
+            <p style={styles.p}>Found {enrichedFreeAgents.length} relevant players for league {leagueId}.</p>
         
             <div style={styles.tableContainer}>
                 <table style={styles.table}>
                     <thead>
                         <tr>
                             <th style={styles.th}><input type="checkbox" onChange={handleSelectAll} checked={enrichedFreeAgents.length > 0 && selectedPlayers.size === enrichedFreeAgents.length} aria-label="Select all players"/></th>
-                            <SortableHeader columnKey="rank">Rank</SortableHeader>
+                            <SortableHeader columnKey="rank">Dynasty Rk</SortableHeader>
                             <th style={styles.th}>Full Name</th>
                             <th style={styles.th}>Pos</th>
-                            <th style={styles.th}>Team</th>
                             <th style={styles.th}>Age</th>
-                            <SortableHeader columnKey="fantasy_calc_value">Trade Value</SortableHeader>
-                            <SortableHeader columnKey="overall_rank">Overall Rk</SortableHeader>
-                            <th style={styles.th}>Pos Rk</th>
-                            <th style={styles.th}>Tier</th>
+                            <SortableHeader columnKey="fantasy_calc_value">Dynasty Val</SortableHeader>
+                            <SortableHeader columnKey="redraft_overall_rank">Redraft Rk</SortableHeader>
+                            <SortableHeader columnKey="redraft_pos_rank">Redraft Pos Rk</SortableHeader>
+                            <SortableHeader columnKey="redraft_tier">Redraft Tier</SortableHeader>
+                            <SortableHeader columnKey="redraft_auction_value">Redraft Auction $</SortableHeader>
                             <SortableHeader columnKey="zap_score">ZAP</SortableHeader>
                             <SortableHeader columnKey="depth_of_talent_score">Depth Score</SortableHeader>
                             <th style={{...styles.th, minWidth: '150px'}}>Category</th>
                             <th style={{...styles.th, ...compSpectrumStyle}}>Comp Spectrum</th>
-                            <th style={{...styles.th, minWidth: '150px'}}>Draft Delta</th>
-                            <th style={styles.th}>RSP Pos Rk</th>
-                            <th style={styles.th}>RSP 23-25</th>
-                            <th style={styles.th}>RP 21-25</th>
                             <th style={styles.th}>Notes</th>
                             <th style={styles.th}>AI Analysis</th>
                         </tr>
@@ -277,20 +310,16 @@ function FleaflickerFreeAgentsPage() {
                                     <td style={{...styles.td, ...styles.valueCell}}>{player.rank}</td>
                                     <td style={styles.td} className={getCellClassName(player, 'Full Name')}>{player.full_name || 'N/A'}</td>
                                     <td style={styles.td}>{player.position}</td>
-                                    <td style={styles.td}>{player.team || 'FA'}</td>
                                     <td style={styles.td}>{player.age || 'N/A'}</td>
                                     <td style={{...styles.td, ...styles.valueCell}} className={getCellClassName(player, 'Trade Value')}>{player.fantasy_calc_value}</td>
-                                    <td style={styles.td}>{player.overall_rank}</td>
-                                    <td style={styles.td} className={getCellClassName(player, 'Pos Rk')}>{player.positional_rank}</td>
-                                    <td style={styles.td}>{player.tier}</td>
+                                    <td style={styles.td} className={getCellClassName(player, 'Redraft Rank')}>{player.redraft_overall_rank}</td>
+                                    <td style={styles.td} className={getCellClassName(player, 'Redraft Pos Rank')}>{player.redraft_pos_rank}</td>
+                                    <td style={styles.td}>{player.redraft_tier}</td>
+                                    <td style={styles.td}>{player.redraft_auction_value}</td>
                                     <td style={styles.td} className={getCellClassName(player, 'ZAP')}>{player.zap_score}</td>
                                     <td style={styles.td} className={getCellClassName(player, 'Depth Score')}>{player.depth_of_talent_score}</td>
                                     <td style={styles.td} className={getCellClassName(player, 'Category')}>{player.category}</td>
                                     <td style={{...styles.td, ...compSpectrumStyle}}>{player.comparison_spectrum}</td>
-                                    <td style={styles.td}>{player.draft_capital_delta}</td>
-                                    <td style={styles.td}>{player.rsp_pos_rank}</td>
-                                    <td style={styles.td}>{player.rsp_2023_2025_rank}</td>
-                                    <td style={styles.td}>{player.rp_2021_2025_rank}</td>
                                     <td style={styles.td}>
                                         {(player.notes_lrqb || player.notes_rsp || player.depth_of_talent_desc) && (
                                             <button onClick={() => setModalContent({ title: `${player.full_name} - Analysis Notes`, body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}`})} style={styles.notesButton}>View</button>
