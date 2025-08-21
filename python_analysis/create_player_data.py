@@ -137,7 +137,7 @@ def main():
     df_lrqb = load_and_prep_excel(lrqb_path, lrqb_rename_map)
     rsp_path = os.path.join(ANALYSIS_DATA_DIR, 'common', 'RSP_Rookies.xlsx')
     df_rsp = load_and_prep_excel(rsp_path, rsp_rename_map)
-    redraft_path = os.path.join(ANALYSIS_DATA_DIR, '1QB', 'Redraft1QB_August15_25.xlsx')
+    redraft_path = os.path.join(ANALYSIS_DATA_DIR, '1QB', 'Redraft1QB_August21_25.xlsx')
     df_redraft = load_and_prep_excel(redraft_path, redraft_rename_map)
     
     print("\nEnriching full Sleeper list with analysis data by name...")
