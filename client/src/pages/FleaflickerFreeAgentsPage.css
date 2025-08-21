@@ -38,9 +38,15 @@
 .category-flex { background-color: #e6f4e9; } /* Light Green */
 .category-bench { background-color: #ffeadb; } /* Light, distinct orange */
 
-/* --- NEW: Redraft Rank Tiers --- */
+/* --- Redraft Rank Tiers --- */
 .redraft-top-tier { background-color: #e1eafb; font-weight: bold; } /* Light Blue/Purple */
 .redraft-strong-starter { background-color: #e6f4e9; font-weight: bold; } /* Light Green */
+
+/* --- NEW: Redraft Auction Value Tiers --- */
+.auction-elite { background-color: #fff8e1; font-weight: bold; } /* Light Gold/Cream */
+.auction-premium { background-color: #e1eafb; font-weight: bold; } /* Light Blue/Purple */
+.auction-starter { background-color: #e6f4e9; } /* Light Green */
+.auction-bargain { background-color: #fef7e0; } /* Light Yellow */
 
 /* --- Row Selection Style --- */
 tr.selected td {

@@ -44,7 +44,7 @@ function FleaflickerFreeAgentsPage() {
     const [selectedPlayers, setSelectedPlayers] = useState(new Set());
     const [sortConfig, setSortConfig] = useState({ key: 'rank', direction: 'ascending' });
 
-    // --- HELPER FUNCTION FOR CONDITIONAL FORMATTING (UPDATED) ---
+    // --- HELPER FUNCTION FOR CONDITIONAL FORMATTING ---
     function getCellClassName(player, columnName) {
         let dynamicClass = '';
         switch (columnName) {
@@ -93,7 +93,6 @@ function FleaflickerFreeAgentsPage() {
                 else if (category === 'flex play') dynamicClass = 'category-flex';
                 else if (category === 'benchwarmer') dynamicClass = 'category-bench';
                 break;
-            // --- NEW: Logic for Redraft Ranks ---
             case 'Redraft Rank':
                 const redraftRank = player.redraft_overall_rank;
                 if (!redraftRank) break;
@@ -105,6 +104,14 @@ function FleaflickerFreeAgentsPage() {
                 if (!redraftPosRank) break;
                 if (redraftPosRank <= 12) dynamicClass = 'redraft-top-tier';
                 else if (redraftPosRank <= 24) dynamicClass = 'redraft-strong-starter';
+                break;
+            case 'Redraft Auction $':
+                const auctionValue = parseAuctionValue(player.redraft_auction_value);
+                if (!auctionValue) break;
+                if (auctionValue >= 40) dynamicClass = 'auction-elite';
+                else if (auctionValue >= 20) dynamicClass = 'auction-premium';
+                else if (auctionValue >= 10) dynamicClass = 'auction-starter';
+                else if (auctionValue >= 1) dynamicClass = 'auction-bargain';
                 break;
         }
         return dynamicClass;
@@ -219,7 +226,6 @@ function FleaflickerFreeAgentsPage() {
         if (sortConfig.key === key) {
             direction = sortConfig.direction === 'ascending' ? 'descending' : 'ascending';
         } else {
-            // Ranks/Tiers should start ascending, values/scores descending
             direction = ['rank', 'overall_rank', 'redraft_overall_rank', 'redraft_pos_rank', 'redraft_tier'].includes(key) 
                 ? 'ascending' 
                 : 'descending';
@@ -315,7 +321,7 @@ function FleaflickerFreeAgentsPage() {
                                     <td style={styles.td} className={getCellClassName(player, 'Redraft Rank')}>{player.redraft_overall_rank}</td>
                                     <td style={styles.td} className={getCellClassName(player, 'Redraft Pos Rank')}>{player.redraft_pos_rank}</td>
                                     <td style={styles.td}>{player.redraft_tier}</td>
-                                    <td style={styles.td}>{player.redraft_auction_value}</td>
+                                    <td style={styles.td} className={getCellClassName(player, 'Redraft Auction $')}>{player.redraft_auction_value}</td>
                                     <td style={styles.td} className={getCellClassName(player, 'ZAP')}>{player.zap_score}</td>
                                     <td style={styles.td} className={getCellClassName(player, 'Depth Score')}>{player.depth_of_talent_score}</td>
                                     <td style={styles.td} className={getCellClassName(player, 'Category')}>{player.category}</td>
