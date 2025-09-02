@@ -1,0 +1,110 @@
+/* client/src/pages/RosterDisplay.css */
+
+.roster-container {
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    max-width: 1200px;
+    margin: 0 auto; /* Center the container */
+  }
+  
+  .roster-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 1rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  .roster-table th,
+  .roster-table td {
+    border-bottom: 1px solid #ddd; /* Use border-bottom for a cleaner look */
+    padding: 12px 15px;
+    text-align: left;
+  }
+  
+  .roster-table th {
+    background-color: #f4f6f8;
+    font-weight: bold;
+  }
+  
+  /* Remove border from the last row for a cleaner finish */
+  .roster-table tbody tr:last-child td {
+      border-bottom: none;
+  }
+  
+  .roster-table tbody tr:hover {
+    background-color: #f5f5f5; /* Add a hover effect */
+  }
+  
+  .trade-value-cell {
+    font-weight: bold;
+  }
+
+  /* FleaflickerFreeAgentsPage.css */
+
+/* --- Positional Color Coding --- */
+.qb { background-color: #dceddc; } /* Muted green */
+.wr { background-color: #dbeff2; } /* Muted blue */
+.rb { background-color: #f7e2e2; } /* Muted red */
+.te { background-color: #fcecdb; } /* Muted orange */
+
+/* --- General Formatting Classes --- */
+.positive { background-color: #e6f4e9; } /* Light Green */
+.negative { background-color: #fce8e6; } /* Light Red */
+.neutral { background-color: #fef7e0; } /* Light Yellow */
+
+/* --- Ranking & Tier Classes --- */
+.super-elite { background-color: #fff8e1; font-weight: bold; } /* Light Gold/Cream */
+.top-five, .elite { background-color: #e1eafb; font-weight: bold; } /* Light Blue/Purple */
+.top-ten { background-color: #e6f4e9; font-weight: bold; } /* Light Green */
+
+/* --- Trade Value Specific Tiers --- */
+.value-contributor { background-color: #f1f8e9; } /* Very Light Green Tint */
+
+/* --- ZAP Score Tiers --- */
+.zap-elite { background-color: #e1eafb; font-weight: bold; }
+.zap-great { background-color: #e6f4e9; font-weight: bold; }
+.zap-good { background-color: #f1f8e9; }
+.zap-average { background-color: #fef7e0; }
+
+/* --- Depth Score Tiers --- */
+.depth-elite { background-color: #e1eafb; font-weight: bold; }
+.depth-starter { background-color: #e6f4e9; font-weight: bold; }
+.depth-rotational { background-color: #f1f8e9; }
+.depth-bench { background-color: #fef7e0; }
+.depth-practice-squad { background-color: #fce8e6; }
+
+/* --- Category Tiers --- */
+.category-elite { background-color: #fff8e1; font-weight: bold; } /* Light Gold/Cream */
+.category-starter { background-color: #e1eafb; font-weight: bold; } /* Light Blue/Purple */
+.category-flex { background-color: #e6f4e9; } /* Light Green */
+.category-bench { background-color: #ffeadb; } /* Light, distinct orange */
+
+/* --- Redraft Rank Tiers --- */
+.redraft-top-tier { background-color: #e1eafb; font-weight: bold; } /* Light Blue/Purple */
+.redraft-strong-starter { background-color: #e6f4e9; font-weight: bold; } /* Light Green */
+
+/* --- NEW: Redraft Auction Value Tiers --- */
+.auction-elite { background-color: #fff8e1; font-weight: bold; } /* Light Gold/Cream */
+.auction-premium { background-color: #e1eafb; font-weight: bold; } /* Light Blue/Purple */
+.auction-starter { background-color: #e6f4e9; } /* Light Green */
+.auction-bargain { background-color: #fef7e0; } /* Light Yellow */
+
+/* --- Row Selection Style --- */
+tr.selected td {
+    background-color: black;
+    color: white;
+    text-decoration: line-through;
+}
+tr.selected td input[type="checkbox"] {
+    accent-color: gold;
+}
+
+/* --- Sortable Header Style --- */
+.sortable-header {
+    cursor: pointer;
+}
+.sortable-header:hover {
+    background-color: #e9ecef; /* A light gray hover effect */
+}
