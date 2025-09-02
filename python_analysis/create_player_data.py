@@ -131,13 +131,13 @@ def main():
         'Auction (Out of $200)': 'redraft_auction_value'
     }
 
-    sf_rankings_path = os.path.join(ANALYSIS_DATA_DIR, 'superflex', 'SuperflexRankings_June25.xlsx')
+    sf_rankings_path = os.path.join(ANALYSIS_DATA_DIR, 'superflex', 'SuperflexRankings_September25.xlsx')
     df_superflex = load_and_prep_excel(sf_rankings_path, sf_rename_map)
     lrqb_path = os.path.join(ANALYSIS_DATA_DIR, 'common', 'LRQB_Postdraft_Rookies.xlsx')
     df_lrqb = load_and_prep_excel(lrqb_path, lrqb_rename_map)
     rsp_path = os.path.join(ANALYSIS_DATA_DIR, 'common', 'RSP_Rookies.xlsx')
     df_rsp = load_and_prep_excel(rsp_path, rsp_rename_map)
-    redraft_path = os.path.join(ANALYSIS_DATA_DIR, '1QB', 'Redraft1QB_August21_25.xlsx')
+    redraft_path = os.path.join(ANALYSIS_DATA_DIR, '1QB', 'Redraft1QB_August26_25.xlsx')
     df_redraft = load_and_prep_excel(redraft_path, redraft_rename_map)
     
     print("\nEnriching full Sleeper list with analysis data by name...")
