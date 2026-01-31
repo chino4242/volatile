@@ -1,0 +1,17 @@
+{
+    "name": "volatile-workspace",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Root workspace for Volatile application",
+    "scripts": {
+        "dev": "concurrently \"npm start --prefix client\" \"npm start --prefix server\" \"python python_analysis/api_server.py\"",
+        "start": "npm run dev",
+        "test": "concurrently \"npm run test:server\" \"npm run test:client\" \"npm run test:python\"",
+        "test:server": "npm test --prefix server",
+        "test:client": "npm test --prefix client -- --watchAll=false",
+        "test:python": "cd python_analysis && pytest"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    }
+}
