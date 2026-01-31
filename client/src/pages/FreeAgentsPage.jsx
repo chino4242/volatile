@@ -1,14 +1,15 @@
 // client/src/pages/FreeAgentsPage.jsx
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { get } from '../api/apiService';
-import { styles } from '../styles'; // Import the shared styles
-import './FleaflickerFreeAgentsPage.css'; // Shared CSS for coloring
+import { styles } from '../styles';
+import './FleaflickerFreeAgentsPage.css'; // Shared CSS
+import PlayerTable from '../components/PlayerTable';
 
 const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
 
-// A reusable Modal component for popups, now using shared styles
+// A reusable Modal component for popups
 const Modal = ({ content, onClose }) => {
   const handleContentClick = (e) => e.stopPropagation();
 
@@ -30,61 +31,7 @@ function FreeAgentsPage() {
   const [error, setError] = useState(null);
   const [modalContent, setModalContent] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
-
-  // --- HELPER FUNCTION FOR CONDITIONAL FORMATTING (Ported from Fleaflicker) ---
-  function getCellClassName(player, columnName) {
-    let dynamicClass = '';
-    switch (columnName) {
-      case 'Full Name':
-        const position = player.position?.toLowerCase();
-        if (['qb', 'rb', 'wr', 'te'].includes(position)) dynamicClass = position;
-        break;
-      case 'Pos Rk':
-        const rank = player.positional_rank;
-        if (!rank) break;
-        if (rank <= 5) dynamicClass = 'top-five';
-        else if (rank <= 10) dynamicClass = 'top-ten';
-        else if (rank <= 20) dynamicClass = 'positive';
-        break;
-      case 'Trade Value':
-        const value = player.fantasy_calc_value;
-        if (!value) break;
-        if (value >= 7000) dynamicClass = 'super-elite';
-        else if (value >= 4000) dynamicClass = 'elite';
-        else if (value >= 3000) dynamicClass = 'positive';
-        else if (value >= 2000) dynamicClass = 'value-contributor';
-        else if (value >= 1000) dynamicClass = 'neutral';
-        break;
-      case 'ZAP':
-        const zap = player.zap_score;
-        if (zap === null || zap === undefined) break;
-        if (zap >= 95) dynamicClass = 'zap-elite';
-        else if (zap >= 85) dynamicClass = 'zap-great';
-        else if (zap >= 75) dynamicClass = 'zap-good';
-        else if (zap >= 60) dynamicClass = 'zap-average';
-        break;
-      case 'Depth Score':
-        const depth = player.depth_of_talent_score;
-        if (depth === null || depth === undefined) break;
-        if (depth >= 95) dynamicClass = 'depth-elite';
-        else if (depth >= 88) dynamicClass = 'depth-starter';
-        else if (depth >= 80) dynamicClass = 'depth-rotational';
-        else if (depth >= 75) dynamicClass = 'depth-bench';
-        else if (depth < 75) dynamicClass = 'depth-practice-squad';
-        break;
-      case 'Category':
-        const category = player.category?.trim().toLowerCase();
-        if (!category) break;
-        if (category === 'elite producer') dynamicClass = 'category-elite';
-        else if (category === 'weekly starter') dynamicClass = 'category-starter';
-        else if (category === 'flex play') dynamicClass = 'category-flex';
-        else if (category === 'benchwarmer') dynamicClass = 'category-bench';
-        break;
-      default:
-        break;
-    }
-    return dynamicClass;
-  }
+  const [sortConfig, setSortConfig] = useState({ key: 'fantasy_calc_value', direction: 'descending' });
 
   const fetchData = useCallback(async (currentLeagueId) => {
     if (!currentLeagueId) {
@@ -96,14 +43,12 @@ function FreeAgentsPage() {
     setLoading(true);
     setError(null);
     try {
-      console.log("--- Fetching Sleeper free agents list... ---");
       const freeAgentsData = await get(`/api/sleeper/league/${currentLeagueId}/free-agents`);
 
       const playerIds = freeAgentsData.map(p => p.player_id);
       let analysisDataMap = new Map();
 
       if (playerIds.length > 0) {
-        console.log("--- Fetching deep analysis from Python API... ---");
         const analysisResponse = await fetch(`${PYTHON_API_BASE_URL}/api/enriched-players/batch`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -121,15 +66,14 @@ function FreeAgentsPage() {
 
       const finalFreeAgents = freeAgentsData.map(player => {
         const analysis = analysisDataMap.get(String(player.player_id));
-        return { ...player, ...analysis }; // Combine the objects
+        return { ...player, ...analysis };
       });
 
       const skillPositions = ['QB', 'WR', 'RB', 'TE'];
-      const filteredAndSorted = finalFreeAgents
-        .filter(p => skillPositions.includes(p.position) && p.fantasy_calc_value > 0)
-        .sort((a, b) => (b.fantasy_calc_value || 0) - (a.fantasy_calc_value || 0));
+      const filtered = finalFreeAgents
+        .filter(p => skillPositions.includes(p.position) && p.fantasy_calc_value > 0);
 
-      setEnrichedFreeAgents(filteredAndSorted);
+      setEnrichedFreeAgents(filtered);
 
     } catch (e) {
       console.error("Failed to fetch page data:", e);
@@ -143,101 +87,116 @@ function FreeAgentsPage() {
     fetchData(leagueId);
   }, [leagueId, fetchData]);
 
-  if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
-  if (error) return <div style={{ ...styles.pageContainer, ...styles.errorText }}>Error: {error}</div>;
+  // Sorting Logic (Standardized)
+  const sortedFreeAgents = useMemo(() => {
+    let sortableItems = [...enrichedFreeAgents];
+    if (sortConfig.key !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        const aIsNull = aValue === null || aValue === undefined;
+        const bIsNull = bValue === null || bValue === undefined;
+
+        if (aIsNull) return 1;
+        if (bIsNull) return -1;
+
+        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [enrichedFreeAgents, sortConfig]);
+
+  const requestSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key) {
+      direction = sortConfig.direction === 'ascending' ? 'descending' : 'ascending';
+    } else {
+      direction = ['rank', 'overall_rank', 'positional_rank', 'rsp_pos_rank'].includes(key)
+        ? 'ascending'
+        : 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
 
   const wrappingCellStyle = {
     whiteSpace: 'normal',
     wordBreak: 'break-word',
-    maxWidth: '250px' // Set a max-width to encourage wrapping
+    maxWidth: '250px',
+    minWidth: '120px'
   };
+
+  const columns = [
+    { header: 'Full Name', accessor: 'full_name', classNameKey: 'Full Name' },
+    { header: 'Pos', accessor: 'position' },
+    { header: 'Team', accessor: 'team' },
+    { header: 'Age', accessor: 'age' },
+    { header: 'Trade Value', accessor: 'fantasy_calc_value', sortKey: 'fantasy_calc_value', isValueCell: true, classNameKey: 'Trade Value' },
+    { header: 'Overall Rk', accessor: 'overall_rank', sortKey: 'overall_rank' },
+    { header: 'Pos Rk', accessor: 'positional_rank', sortKey: 'positional_rank', classNameKey: 'Pos Rk' },
+    { header: 'Tier', accessor: 'tier', sortKey: 'tier' },
+    { header: 'ZAP', accessor: 'zap_score', sortKey: 'zap_score', classNameKey: 'ZAP' },
+    { header: 'Depth Score', accessor: 'depth_of_talent_score', sortKey: 'depth_of_talent_score', classNameKey: 'Depth Score' },
+    { header: 'Comp Spectrum', accessor: 'comparison_spectrum', style: wrappingCellStyle },
+    { header: 'Category', accessor: 'category', classNameKey: 'Category', style: wrappingCellStyle },
+    { header: 'Draft Delta', accessor: 'draft_capital_delta', style: wrappingCellStyle },
+    { header: 'RSP Pos Rk', accessor: 'rsp_pos_rank', sortKey: 'rsp_pos_rank' },
+    { header: 'RSP 23-25', accessor: 'rsp_2023_2025_rank' },
+    { header: 'RP 21-25', accessor: 'rp_2021_2025_rank' },
+    {
+      header: 'Notes',
+      render: (player) => (
+        (player.notes_lrqb || player.notes_rsp || player.depth_of_talent_desc) && (
+          <button
+            onClick={() => setModalContent({
+              title: `${player.full_name} - Analysis Notes`,
+              body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}`
+            })}
+            style={styles.notesButton}
+          >
+            View
+          </button>
+        )
+      )
+    },
+    {
+      header: 'AI Analysis',
+      render: (player) => (
+        player.gemini_analysis && (
+          <button
+            onClick={() => setModalContent({
+              title: `${player.full_name} - AI Analysis`,
+              body: player.gemini_analysis
+            })}
+            style={styles.notesButton}
+          >
+            View
+          </button>
+        )
+      )
+    }
+  ];
+
+  if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
+  if (error) return <div style={{ ...styles.pageContainer, ...styles.errorText }}>Error: {error}</div>;
 
   return (
     <div style={styles.pageContainer}>
       <h1 style={styles.h1}>Top Sleeper Free Agents</h1>
       <p style={styles.p}>Found {enrichedFreeAgents.length} relevant players for league {leagueId}, sorted by trade value.</p>
 
-      <div style={styles.tableContainer}>
-        {/* --- FIX: Removed table-layout: fixed to allow browser to auto-size columns --- */}
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              {/* --- FIX: Removed explicit width styles from headers --- */}
-              <th style={styles.th}>Full Name</th>
-              <th style={styles.th}>Pos</th>
-              <th style={styles.th}>Team</th>
-              <th style={styles.th}>Age</th>
-              <th style={styles.th}>Trade Value</th>
-              <th style={styles.th}>Overall Rk</th>
-              <th style={styles.th}>Pos Rk</th>
-              <th style={styles.th}>Tier</th>
-              <th style={styles.th}>ZAP</th>
-              <th style={styles.th}>Depth Score</th>
-              <th style={styles.th}>Comp Spectrum</th>
-              <th style={styles.th}>Category</th>
-              <th style={styles.th}>Draft Delta</th>
-              <th style={styles.th}>RSP Pos Rk</th>
-              <th style={styles.th}>RSP 23-25</th>
-              <th style={styles.th}>RP 21-25</th>
-              <th style={styles.th}>Notes</th>
-              <th style={styles.th}>AI Analysis</th>
-            </tr>
-          </thead>
-          <tbody>
-            {enrichedFreeAgents.map((player) => (
-              <tr
-                key={player.player_id}
-                onMouseEnter={() => setHoveredRow(player.player_id)}
-                onMouseLeave={() => setHoveredRow(null)}
-                style={hoveredRow === player.player_id ? styles.trHover : {}}
-              >
-                <td style={styles.td} className={getCellClassName(player, 'Full Name')}>{player.full_name || 'N/A'}</td>
-                <td style={styles.td}>{player.position}</td>
-                <td style={styles.td}>{player.team}</td>
-                <td style={styles.td}>{player.age}</td>
-                <td style={{ ...styles.td, ...styles.valueCell }} className={getCellClassName(player, 'Trade Value')}>{player.fantasy_calc_value}</td>
-                <td style={styles.td}>{player.overall_rank}</td>
-                <td style={styles.td} className={getCellClassName(player, 'Pos Rk')}>{player.positional_rank}</td>
-                <td style={styles.td}>{player.tier}</td>
-                <td style={styles.td} className={getCellClassName(player, 'ZAP')}>{player.zap_score}</td>
-                <td style={styles.td} className={getCellClassName(player, 'Depth Score')}>{player.depth_of_talent_score}</td>
-                <td style={{ ...styles.td, ...wrappingCellStyle }}>{player.comparison_spectrum}</td>
-                <td style={{ ...styles.td, ...wrappingCellStyle }} className={getCellClassName(player, 'Category')}>{player.category}</td>
-                <td style={{ ...styles.td, ...wrappingCellStyle }}>{player.draft_capital_delta}</td>
-                <td style={styles.td}>{player.rsp_pos_rank}</td>
-                <td style={styles.td}>{player.rsp_2023_2025_rank}</td>
-                <td style={styles.td}>{player.rp_2021_2025_rank}</td>
-                <td style={styles.td}>
-                  {(player.notes_lrqb || player.notes_rsp || player.depth_of_talent_desc) && (
-                    <button
-                      onClick={() => setModalContent({
-                        title: `${player.full_name} - Analysis Notes`,
-                        body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}`
-                      })}
-                      style={styles.notesButton}
-                    >
-                      View
-                    </button>
-                  )}
-                </td>
-                <td style={styles.td}>
-                  {player.gemini_analysis && (
-                    <button
-                      onClick={() => setModalContent({
-                        title: `${player.full_name} - AI Analysis`,
-                        body: player.gemini_analysis
-                      })}
-                      style={styles.notesButton}
-                    >
-                      View
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <PlayerTable
+        players={sortedFreeAgents}
+        columns={columns}
+        sortConfig={sortConfig}
+        onSort={requestSort}
+        onRowHover={setHoveredRow}
+        hoveredRowId={hoveredRow}
+      />
+
       {modalContent && (
         <Modal
           content={

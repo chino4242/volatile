@@ -1,9 +1,11 @@
+// client/src/pages/FleaflickerFreeAgentsPage.jsx
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { get } from '../api/apiService';
 import { styles } from '../styles';
 import './FleaflickerFreeAgentsPage.css';
-import { getCellClassName } from '../utils/formatting';
+import PlayerTable from '../components/PlayerTable';
 
 const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
 
@@ -186,15 +188,40 @@ function FleaflickerFreeAgentsPage() {
         minWidth: '150px',
     };
 
-    const SortableHeader = ({ children, columnKey }) => {
-        const isSorted = sortConfig.key === columnKey;
-        const sortIcon = isSorted ? (sortConfig.direction === 'ascending' ? ' ▲' : ' ▼') : '';
-        return (
-            <th style={styles.th} onClick={() => requestSort(columnKey)} className="sortable-header">
-                {children}{sortIcon}
-            </th>
-        );
-    };
+    const columns = [
+        { header: 'Dynasty Rk', accessor: 'rank', sortKey: 'rank', isValueCell: true },
+        { header: 'Full Name', accessor: 'full_name', classNameKey: 'Full Name' },
+        { header: 'Pos', accessor: 'position' },
+        { header: 'Age', accessor: 'age' },
+        { header: 'Dynasty Val', accessor: 'fantasy_calc_value', sortKey: 'fantasy_calc_value', isValueCell: true, classNameKey: 'Trade Value' },
+        { header: 'Redraft Rk', accessor: 'redraft_overall_rank', sortKey: 'redraft_overall_rank', classNameKey: 'Redraft Rank' },
+        { header: 'Redraft Pos Rk', accessor: 'redraft_pos_rank', sortKey: 'redraft_pos_rank', classNameKey: 'Redraft Pos Rank' },
+        { header: 'Redraft Tier', accessor: 'redraft_tier', sortKey: 'redraft_tier' },
+        { header: 'Redraft Auction $', accessor: 'redraft_auction_value', sortKey: 'redraft_auction_value', classNameKey: 'Redraft Auction $' },
+        { header: 'ZAP', accessor: 'zap_score', sortKey: 'zap_score', classNameKey: 'ZAP' },
+        { header: 'Depth Score', accessor: 'depth_of_talent_score', sortKey: 'depth_of_talent_score', classNameKey: 'Depth Score' },
+        { header: 'Category', accessor: 'category', classNameKey: 'Category', style: { minWidth: '150px' } },
+        { header: 'Comp Spectrum', accessor: 'comparison_spectrum', style: compSpectrumStyle },
+        {
+            header: 'Notes',
+            render: (player) => (
+                (player.notes_lrqb || player.notes_rsp || player.depth_of_talent_desc) && (
+                    <button onClick={() => setModalContent({
+                        title: `${player.full_name} - Analysis Notes`,
+                        body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}`
+                    })} style={styles.notesButton}>View</button>
+                )
+            )
+        },
+        {
+            header: 'AI Analysis',
+            render: (player) => (
+                player.gemini_analysis && (
+                    <button onClick={() => setModalContent({ title: `${player.full_name} - AI Analysis`, body: player.gemini_analysis })} style={styles.notesButton}>View</button>
+                )
+            )
+        }
+    ];
 
     if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
     if (error) return <div style={{ ...styles.pageContainer, ...styles.errorText }}>Error: {error}</div>;
@@ -204,72 +231,19 @@ function FleaflickerFreeAgentsPage() {
             <h1 style={styles.h1}>Top Fleaflicker Free Agents</h1>
             <p style={styles.p}>Found {enrichedFreeAgents.length} relevant players for league {leagueId}.</p>
 
-            <div style={styles.tableContainer}>
-                <table style={styles.table}>
-                    <thead>
-                        <tr>
-                            <th style={styles.th}><input type="checkbox" onChange={handleSelectAll} checked={enrichedFreeAgents.length > 0 && selectedPlayers.size === enrichedFreeAgents.length} aria-label="Select all players" /></th>
-                            <SortableHeader columnKey="rank">Dynasty Rk</SortableHeader>
-                            <th style={styles.th}>Full Name</th>
-                            <th style={styles.th}>Pos</th>
-                            <th style={styles.th}>Age</th>
-                            <SortableHeader columnKey="fantasy_calc_value">Dynasty Val</SortableHeader>
-                            <SortableHeader columnKey="redraft_overall_rank">Redraft Rk</SortableHeader>
-                            <SortableHeader columnKey="redraft_pos_rank">Redraft Pos Rk</SortableHeader>
-                            <SortableHeader columnKey="redraft_tier">Redraft Tier</SortableHeader>
-                            <SortableHeader columnKey="redraft_auction_value">Redraft Auction $</SortableHeader>
-                            <SortableHeader columnKey="zap_score">ZAP</SortableHeader>
-                            <SortableHeader columnKey="depth_of_talent_score">Depth Score</SortableHeader>
-                            <th style={{ ...styles.th, minWidth: '150px' }}>Category</th>
-                            <th style={{ ...styles.th, ...compSpectrumStyle }}>Comp Spectrum</th>
-                            <th style={styles.th}>Notes</th>
-                            <th style={styles.th}>AI Analysis</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {sortedFreeAgents.map((player) => {
-                            const isChecked = selectedPlayers.has(player.sleeper_id);
-                            const isHovered = hoveredRow === player.sleeper_id;
-                            const rowStyle = isChecked ? {} : (isHovered ? styles.trHover : {});
-
-                            return (
-                                <tr
-                                    key={player.sleeper_id}
-                                    onMouseEnter={() => setHoveredRow(player.sleeper_id)}
-                                    onMouseLeave={() => setHoveredRow(null)}
-                                    style={rowStyle}
-                                    className={isChecked ? 'selected' : ''}
-                                >
-                                    <td style={styles.td}><input type="checkbox" checked={isChecked} onChange={() => handleSelectPlayer(player.sleeper_id)} aria-label={`Select ${player.full_name}`} /></td>
-                                    <td style={{ ...styles.td, ...styles.valueCell }}>{player.rank}</td>
-                                    <td style={styles.td} className={getCellClassName(player, 'Full Name')}>{player.full_name || 'N/A'}</td>
-                                    <td style={styles.td}>{player.position}</td>
-                                    <td style={styles.td}>{player.age || 'N/A'}</td>
-                                    <td style={{ ...styles.td, ...styles.valueCell }} className={getCellClassName(player, 'Trade Value')}>{player.fantasy_calc_value}</td>
-                                    <td style={styles.td} className={getCellClassName(player, 'Redraft Rank')}>{player.redraft_overall_rank}</td>
-                                    <td style={styles.td} className={getCellClassName(player, 'Redraft Pos Rank')}>{player.redraft_pos_rank}</td>
-                                    <td style={styles.td}>{player.redraft_tier}</td>
-                                    <td style={styles.td} className={getCellClassName(player, 'Redraft Auction $')}>{player.redraft_auction_value}</td>
-                                    <td style={styles.td} className={getCellClassName(player, 'ZAP')}>{player.zap_score}</td>
-                                    <td style={styles.td} className={getCellClassName(player, 'Depth Score')}>{player.depth_of_talent_score}</td>
-                                    <td style={styles.td} className={getCellClassName(player, 'Category')}>{player.category}</td>
-                                    <td style={{ ...styles.td, ...compSpectrumStyle }}>{player.comparison_spectrum}</td>
-                                    <td style={styles.td}>
-                                        {(player.notes_lrqb || player.notes_rsp || player.depth_of_talent_desc) && (
-                                            <button onClick={() => setModalContent({ title: `${player.full_name} - Analysis Notes`, body: `LRQB Notes:\n${player.notes_lrqb || 'N/A'}\n\n---\n\nRSP Notes:\n${player.notes_rsp || 'N/A'}\n\n---\n\nDepth of Talent Description:\n${player.depth_of_talent_desc || 'N/A'}` })} style={styles.notesButton}>View</button>
-                                        )}
-                                    </td>
-                                    <td style={styles.td}>
-                                        {player.gemini_analysis && (
-                                            <button onClick={() => setModalContent({ title: `${player.full_name} - AI Analysis`, body: player.gemini_analysis })} style={styles.notesButton}>View</button>
-                                        )}
-                                    </td>
-                                </tr>
-                            )
-                        })}
-                    </tbody>
-                </table>
-            </div>
+            <PlayerTable
+                players={sortedFreeAgents}
+                columns={columns}
+                sortConfig={sortConfig}
+                onSort={requestSort}
+                onRowHover={setHoveredRow}
+                hoveredRowId={hoveredRow}
+                selection={{
+                    selectedIds: selectedPlayers,
+                    onSelect: handleSelectPlayer,
+                    onSelectAll: handleSelectAll
+                }}
+            />
 
             {modalContent && (
                 <Modal
