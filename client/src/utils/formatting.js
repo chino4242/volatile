@@ -29,7 +29,7 @@ export function getCellClassName(player, columnName) {
             else if (value >= 4000) dynamicClass = 'elite';
             else if (value >= 3000) dynamicClass = 'positive';
             else if (value >= 2000) dynamicClass = 'value-contributor';
-            else if (value >= 1000) dynamicClass = 'neutral';
+            else if (value >= 1000) dynamicClass = 'trade-neutral'; // Changed from 'neutral' to avoid global collision
             break;
         case 'ZAP':
             const zap = player.zap_score;

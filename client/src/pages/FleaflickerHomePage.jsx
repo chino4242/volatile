@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { get } from '../api/apiService';
 import { getFantasyCalcValues } from '../api/fantasyCalc';
+import './RosterDisplay.css'; // Import shared CSS for table styling
 
 function FleaflickerHomePage() {
   const { leagueId: urlLeagueId } = useParams();

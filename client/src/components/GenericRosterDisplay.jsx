@@ -175,8 +175,41 @@ function GenericRosterDisplay({ platform }) {
             { header: 'Full Name', accessor: 'full_name', classNameKey: 'Full Name' },
             { header: 'Position', accessor: 'position', classNameKey: 'Full Name' },
             { header: 'Team', accessor: 'team' },
-            { header: 'Age', accessor: 'age' },
-            { header: 'Trade Value', accessor: 'fantasy_calc_value', sortKey: 'fantasy_calc_value', isValueCell: true, classNameKey: 'Trade Value' },
+            {
+                header: 'Age',
+                accessor: 'age',
+                render: (player) => {
+                    const age = player.age;
+                    if (!age) return '-';
+                    let className = 'age-neutral'; // Default (25-28)
+                    if (age <= 24) className = 'age-youth';  // Green
+                    else if (age >= 29) className = 'age-veteran'; // Red/Warning
+
+                    return <span className={`age-badge ${className}`}>{age}</span>;
+                }
+            },
+            {
+                header: 'Trade Value',
+                accessor: 'fantasy_calc_value',
+                sortKey: 'fantasy_calc_value',
+                isValueCell: true,
+                classNameKey: 'Trade Value',
+                render: (player) => {
+                    const value = player.fantasy_calc_value || 0;
+                    // Max value anchor: 9000 (Justin Jefferson tier)
+                    const percent = Math.min((value / 9000) * 100, 100);
+
+                    return (
+                        <div className="value-bar-container">
+                            <div
+                                className="value-bar-fill"
+                                style={{ width: `${percent}%` }}
+                            />
+                            <span className="value-text">{value}</span>
+                        </div>
+                    );
+                }
+            },
             { header: rankHeader, accessor: rankAccessor, sortKey: rankAccessor, classNameKey: 'Overall Rank' },
             { header: 'Pos. Rank', accessor: posRankAccessor, sortKey: posRankAccessor, classNameKey: 'Pos Rk' },
             { header: 'Tier', accessor: tierAccessor, sortKey: tierAccessor, classNameKey: 'Tier' },

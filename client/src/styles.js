@@ -120,7 +120,7 @@ export const styles = {
     // Specific cell styles
     valueCell: {
         fontWeight: 'bold',
-        color: colors.primary, // Use the primary red for emphasis
+        // Removed color: colors.primary to allow CSS classes to control styling
     },
     notesButton: {
         padding: '6px 12px',

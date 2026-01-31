@@ -77,15 +77,24 @@ const PlayerTable = ({
                     </tr>
                 </thead>
                 <tbody>
-                    {players.map((player) => {
+                    {players.map((player, index) => {
                         // Use player_id or sleeper_id or id as key
                         const playerId = player.sleeper_id || player.player_id || player.id;
 
                         const isChecked = selection ? selection.selectedIds.has(playerId) : false;
                         const isHovered = hoveredRowId === playerId;
 
-                        // Row styling
-                        const rowStyle = isChecked ? {} : (isHovered ? styles.trHover : {});
+                        // Row styling with zebra striping
+                        let rowStyle = {};
+                        if (isChecked) {
+                            rowStyle = {}; // Selected rows use CSS class
+                        } else if (isHovered) {
+                            rowStyle = styles.trHover;
+                        } else if (index % 2 === 1) {
+                            // Zebra striping for alternate rows
+                            rowStyle = { backgroundColor: '#f8f9fa' };
+                        }
+
                         const rowClass = isChecked ? 'selected' : '';
 
                         return (
