@@ -320,3 +320,153 @@ tr.selected td input[type="checkbox"] {
   z-index: 1;
   padding-left: 4px;
 }
+
+/* --- Visual Insights: Tier Badges --- */
+.tier-gold::before {
+  content: "🥇";
+  margin-right: 4px;
+}
+
+.tier-gold {
+  background-color: #fff3cd;
+  color: #856404;
+  font-weight: bold;
+  border-radius: 4px;
+  padding: 2px 6px;
+  display: inline-block;
+  border: 1px solid #ffeeba;
+}
+
+.tier-silver::before {
+  content: "🥈";
+  margin-right: 4px;
+}
+
+.tier-silver {
+  background-color: #d1ecf1;
+  color: #0c5460;
+  font-weight: bold;
+  border-radius: 4px;
+  padding: 2px 6px;
+  display: inline-block;
+  border: 1px solid #bee5eb;
+}
+
+.tier-bronze::before {
+  content: "🥉";
+  margin-right: 4px;
+}
+
+.tier-bronze {
+  background-color: #e2e3e5;
+  color: #383d41;
+  font-weight: bold;
+  border-radius: 4px;
+  padding: 2px 6px;
+  display: inline-block;
+  border: 1px solid #d6d8db;
+}
+
+.tier-neutral {
+  color: #6c757d;
+}
+
+/* --- Visual Insights: Rank Highlights --- */
+.rank-starter-elite {
+  color: #155724;
+  font-weight: 900;
+  /* Extra bold */
+  background-color: #d4edda;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.rank-starter-strong {
+  color: #1e7e34;
+  font-weight: 700;
+  background-color: #e8f5e9;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.rank-starter {
+  color: #28a745;
+  background-color: #ecf7ed;
+  /* Light green to bridge gap */
+  font-weight: 600;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.rank-flex {
+  color: #3d8b3d;
+  background-color: #f1fbe5;
+  /* Very light green-yellow */
+  font-weight: 500;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.rank-depth {
+  color: #557c55;
+  background-color: #f8fce0;
+  /* Pale yellow-green */
+  font-weight: 400;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.rank-roster {
+  color: #856404;
+  background-color: #fff9db;
+  /* Light Yellow */
+  font-weight: 400;
+}
+
+.rank-fringe {
+  color: #856404;
+  background-color: #ffffe0;
+  /* Pale Yellow */
+  font-weight: 400;
+}
+
+.rank-deep {
+  color: #997404;
+  background-color: #fff4e6;
+  /* Pale Orange/Beige */
+  font-weight: 400;
+}
+
+.rank-sub {
+  color: #6c757d;
+  background-color: #f8f9fa;
+  /* Off-white / Gray */
+  font-weight: 400;
+}
+
+/* --- Visual Insights: Trend Indicators --- */
+.trend-indicator {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 500;
+  gap: 4px;
+}
+
+.trend-arrow {
+  font-size: 0.9em;
+}
+
+.trend-up {
+  color: #28a745;
+  /* Green */
+}
+
+.trend-down {
+  color: #dc3545;
+  /* Red */
+}
+
+.trend-flat {
+  color: #6c757d;
+  /* Gray */
+}

@@ -37,7 +37,8 @@ const PlayerTable = ({
     onSort,
     selection,
     onRowHover,
-    hoveredRowId
+    hoveredRowId,
+    keeperCount // Optional: Number of players to keep (draws a cutoff line)
 }) => {
 
     return (
@@ -84,18 +85,42 @@ const PlayerTable = ({
                         const isChecked = selection ? selection.selectedIds.has(playerId) : false;
                         const isHovered = hoveredRowId === playerId;
 
-                        // Row styling with zebra striping
+                        // Row styling with zebra striping and keeper logic
                         let rowStyle = {};
-                        if (isChecked) {
-                            rowStyle = {}; // Selected rows use CSS class
-                        } else if (isHovered) {
-                            rowStyle = styles.trHover;
-                        } else if (index % 2 === 1) {
-                            // Zebra striping for alternate rows
+
+                        // 1. Base alternating colors
+                        if (index % 2 === 1) {
                             rowStyle = { backgroundColor: '#f8f9fa' };
                         }
 
-                        const rowClass = isChecked ? 'selected' : '';
+                        // 2. Hover effect (overrides zebra)
+                        if (isHovered) {
+                            rowStyle = styles.trHover;
+                        }
+
+                        // 3. Selection (highest priority)
+                        if (isChecked) {
+                            rowStyle = {}; // Selected rows use CSS class
+                        }
+
+                        // 4. KEEPER VISUALIZATION
+                        if (keeperCount && index === keeperCount - 1) {
+                            // The last keeper row gets a thick bottom border
+                            rowStyle = { ...rowStyle, borderBottom: '3px solid #dc3545' };
+                        }
+
+                        // 5. Droppable players (below cutoff) - Fade them slightly
+                        if (keeperCount && index >= keeperCount) {
+                            rowStyle = { ...rowStyle, opacity: 0.75, backgroundColor: (index % 2 === 1 ? '#fbeaea' : '#fff5f5') };
+                            // Slight red tint to indicate drop candidates
+                        }
+
+                        let rowClass = isChecked ? 'selected' : '';
+
+                        // Add class for the cutoff row for potential CSS styling
+                        if (keeperCount && index === keeperCount - 1) {
+                            rowClass += ' keeper-cutoff-row';
+                        }
 
                         return (
                             <tr

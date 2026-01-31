@@ -28,6 +28,7 @@ function GenericRosterDisplay({ platform }) {
         ppr: 1.0,
         isSuperflex: true
     });
+    const [keeperCount, setKeeperCount] = useState(10); // Default to 10 keepers
     const [settingsLoaded, setSettingsLoaded] = useState(false);
 
     // Hook handles Python analysis enrichment
@@ -81,6 +82,7 @@ function GenericRosterDisplay({ platform }) {
                     ...prev,
                     isSuperflex: effectiveIsSuperflex
                 }));
+                // Check if Fleaflicker platform to hint keeper settings if needed, but for now default 10 is fine
                 setSettingsLoaded(true);
             }
 
@@ -96,18 +98,22 @@ function GenericRosterDisplay({ platform }) {
             const fantasyCalcMap = new Map();
             if (calcValuesResponse && typeof calcValuesResponse === 'object') {
                 Object.entries(calcValuesResponse).forEach(([cleansedNameKey, playerData]) => {
-                    if (playerData && typeof playerData.value !== 'undefined') {
-                        fantasyCalcMap.set(cleansedNameKey, playerData.value);
+                    if (playerData) {
+                        fantasyCalcMap.set(cleansedNameKey, playerData); // Store whole object
                     }
                 });
             }
 
             const mergedPlayers = (rosterData.players || []).map(player => {
-                const tradeValue = fantasyCalcMap.get(cleanseName(player.full_name)) || 0;
+                const fcData = fantasyCalcMap.get(cleanseName(player.full_name)) || {};
+                const tradeValue = fcData.value || 0;
+
                 return {
                     ...player,
                     fantasy_calc_value: tradeValue,
-                    trade_value: tradeValue
+                    trade_value: tradeValue,
+                    trend_30_day: fcData.trend30Day,
+                    redraft_value: fcData.redraftValue
                 };
             });
 
@@ -189,6 +195,27 @@ function GenericRosterDisplay({ platform }) {
                 }
             },
             {
+                header: 'Trend',
+                accessor: 'trend_30_day',
+                sortKey: 'trend_30_day',
+                render: (player) => {
+                    const trend = player.trend_30_day;
+                    if (trend === undefined || trend === null) return '-';
+
+                    const isPositive = trend > 0;
+                    const isNegative = trend < 0;
+                    const trendClass = isPositive ? 'trend-up' : (isNegative ? 'trend-down' : 'trend-flat');
+                    const arrow = isPositive ? '▲' : (isNegative ? '▼' : '▬');
+
+                    return (
+                        <span className={`trend-indicator ${trendClass}`}>
+                            <span className="trend-arrow">{arrow}</span>
+                            {Math.abs(trend)}
+                        </span>
+                    );
+                }
+            },
+            {
                 header: 'Trade Value',
                 accessor: 'fantasy_calc_value',
                 sortKey: 'fantasy_calc_value',
@@ -208,6 +235,14 @@ function GenericRosterDisplay({ platform }) {
                             <span className="value-text">{value}</span>
                         </div>
                     );
+                }
+            },
+            {
+                header: 'Redraft Value',
+                accessor: 'redraft_value',
+                sortKey: 'redraft_value',
+                render: (player) => {
+                    return player.redraft_value || '-';
                 }
             },
             { header: rankHeader, accessor: rankAccessor, sortKey: rankAccessor, classNameKey: 'Overall Rank' },
@@ -233,6 +268,27 @@ function GenericRosterDisplay({ platform }) {
 
                 {/* Manual Settings Controls */}
                 <div style={{ display: 'flex', gap: '20px', alignItems: 'center', backgroundColor: '#f5f5f5', padding: '10px', borderRadius: '8px' }}>
+
+                    {/* NEW: Keeper Limit Control */}
+                    <div style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid #ddd', paddingRight: '20px' }}>
+                        <label style={{ fontSize: '12px', color: '#444', marginBottom: '4px', fontWeight: 'bold' }}>Keepers</label>
+                        <input
+                            type="number"
+                            min="0"
+                            max="50"
+                            value={keeperCount}
+                            onChange={(e) => setKeeperCount(parseInt(e.target.value) || 0)}
+                            style={{
+                                padding: '4px',
+                                borderRadius: '4px',
+                                border: '1px solid #aaa',
+                                width: '60px',
+                                textAlign: 'center',
+                                fontWeight: 'bold'
+                            }}
+                        />
+                    </div>
+
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <label style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>League Size</label>
                         <select
@@ -286,6 +342,7 @@ function GenericRosterDisplay({ platform }) {
                     onSort={requestSort}
                     onRowHover={setHoveredRow}
                     hoveredRowId={hoveredRow}
+                    keeperCount={keeperCount}
                 />
             ) : (
                 <p>No players found on this roster.</p>

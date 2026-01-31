@@ -57,6 +57,67 @@ export function getCellClassName(player, columnName) {
             else if (category === 'benchwarmer') dynamicClass = 'category-bench';
             break;
 
+        case 'Tier':
+        case 'one_qb_tier':
+            // Tier Logic: 1 (Gold), 2 (Silver), 3 (Bronze), 4+ (Neutral)
+            const tier = player[columnName === 'Tier' ? 'tier' : 'one_qb_tier'];
+            if (!tier) break;
+            if (tier === 1) dynamicClass = 'tier-gold';
+            else if (tier === 2) dynamicClass = 'tier-silver';
+            else if (tier === 3) dynamicClass = 'tier-bronze';
+            else dynamicClass = 'tier-neutral';
+            break;
+
+        case 'Overall Rank':
+        case '1QB Rank': // Handle both standard and 1QB rank headers
+            // Rank Logic: Top 12 (Elite/Green), Top 24 (Good/Light Green), Top 50 (Decent)
+            // Need to determine which rank field to use based on the header or context
+            // Ideally the caller passes the correct value, but getCellClassName takes (player, columnName)
+            // In GenericRosterDisplay, classNameKey is passed.
+
+            // We'll trust the caller to pass the right key or we derive it.
+            // Actually, GenericRosterDisplay passes 'Overall Rank' as key for both depending on toggle?
+            // Let's check GenericRosterDisplay again.
+            // It sends classNameKey: 'Overall Rank' even if it is 1QB.
+            // But we need the actual VALUE to judge. 
+            // In PlayerTable, it passes `player[column.accessor]` as the value to render, 
+            // BUT getCellClassName receives the WHOLE `player` object.
+
+            // To be safe, we should assume the player object has the relevant rank fields.
+            // We will check both or prefer one if available.
+
+            let rankVal = player.overall_rank;
+            // If the column is explicitly 1QB Rank, we might want that. 
+            // However, typically the 'current' rank is what matters.
+            // Let's try to be smart: if one_qb_rank is low and overall is high, maybe we are in 1QB mode?
+            // Actually, formatting.js shouldn't guess mode.
+            // Simplest approach: Highlight if ANY major rank is top tier?
+            // Or look for specific props.
+
+            // Let's just check the value passed in via the column accessor? 
+            // PlayerTable calls: `getCellClassName(player, column.classNameKey)`
+            // It doesn't pass the specific value. This is a limitation of getCellClassName signature.
+
+            // Fix: We'll check the most likely rank properties.
+            const r1 = player.overall_rank;
+            const r2 = player.one_qb_rank;
+
+            // If it's a small number (better rank), treat it as relevant.
+            const bestRank = (r1 && r2) ? Math.min(r1, r2) : (r1 || r2);
+
+            if (!bestRank) break;
+
+            if (bestRank <= 12) dynamicClass = 'rank-starter-elite';       // Top 12 (Bold Dark Green)
+            else if (bestRank <= 24) dynamicClass = 'rank-starter-strong'; // Top 24 (Bold Medium Green)
+            else if (bestRank <= 36) dynamicClass = 'rank-starter';        // Top 36 (Green)
+            else if (bestRank <= 50) dynamicClass = 'rank-flex';           // Top 50 (Light Green)
+            else if (bestRank <= 75) dynamicClass = 'rank-depth';          // Top 75 (Pale Green)
+            else if (bestRank <= 100) dynamicClass = 'rank-roster';        // Top 100 (Yellow-Green)
+            else if (bestRank <= 125) dynamicClass = 'rank-fringe';        // Top 125 (Pale Yellow)
+            else if (bestRank <= 150) dynamicClass = 'rank-deep';          // Top 150 (Pale Orange/Beige)
+            else if (bestRank <= 200) dynamicClass = 'rank-sub';           // Top 200 (Off-white/Gray)
+            break;
+
         // Fleaflicker Specific Columns (Safe to keep here, valid for all if data present)
         case 'Redraft Rank':
             const redraftRank = player.redraft_overall_rank;

@@ -45,7 +45,9 @@ async function getFantasyCalcValues(isDynasty = true, numQbs = 2, ppr = 1, numTe
                     value: playerData.value,
                     overallRank: playerData.overallRank,
                     positionRank: playerData.positionRank,
-                    sleeperId: sleeperId // Add the sleeperId to the map value
+                    sleeperId: sleeperId, // Add the sleeperId to the map value
+                    trend30Day: playerData.trend30Day,
+                    redraftValue: playerData.redraftValue
                 });
             }
         });
