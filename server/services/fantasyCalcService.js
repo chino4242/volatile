@@ -8,8 +8,13 @@ const axios = require('axios');
  */
 function cleanseNameJs(name) {
     if (typeof name !== 'string') return '';
-    // Removes non-alphanumeric characters except spaces and apostrophes, then trims whitespace and converts to lower case.
-    return name.replace(/[^\w\s']+/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+    // Removes suffixes, non-alphanumeric characters, then trims/lowercases.
+    return name
+        .replace(/\b(jr|sr|ii|iii|iv|v)\b/gi, '') // Remove suffixes
+        .replace(/[^\w\s']+/g, '') // Remove punctuation
+        .replace(/\s+/g, ' ') // Normalize spaces
+        .trim()
+        .toLowerCase();
 }
 
 /**

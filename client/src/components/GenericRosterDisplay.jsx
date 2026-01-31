@@ -7,7 +7,16 @@ import { usePlayerAnalysis } from '../hooks/usePlayerAnalysis';
 import '../pages/RosterDisplay.css'; // Reuse existing CSS
 
 // Helper to cleanse names for FantasyCalc matching (defined outside component to be stable)
-const cleanseName = (name) => (typeof name === 'string' ? name.replace(/[^\w\s']+/g, '').replace(/\s+/g, ' ').trim().toLowerCase() : '');
+// Helper to cleanse names for FantasyCalc matching (defined outside component to be stable)
+const cleanseName = (name) => {
+    if (typeof name !== 'string') return '';
+    return name
+        .replace(/\b(jr|sr|ii|iii|iv|v)\b/gi, '') // Remove suffixes
+        .replace(/[^\w\s']+/g, '') // Remove punctuation
+        .replace(/\s+/g, ' ') // Normalize spaces
+        .trim()
+        .toLowerCase();
+};
 
 function GenericRosterDisplay({ platform }) {
     const { leagueId, rosterId } = useParams();
@@ -38,7 +47,16 @@ function GenericRosterDisplay({ platform }) {
 
     // Derived sorted list
     const sortedRoster = useMemo(() => {
-        let sortableItems = [...enrichedPlayers];
+        if (!enrichedPlayers) return [];
+
+        // Inject Value Gap here (because ranks are added by usePlayerAnalysis)
+        let sortableItems = enrichedPlayers.map(p => {
+            const mkt = p.fc_rank;
+            const lg = manualSettings.isSuperflex ? p.overall_rank : p.one_qb_rank;
+            const gap = (mkt && lg) ? mkt - lg : null;
+            return { ...p, value_gap: gap };
+        });
+
         if (sortConfig.key !== null) {
             sortableItems.sort((a, b) => {
                 let aValue = a[sortConfig.key];
@@ -105,6 +123,7 @@ function GenericRosterDisplay({ platform }) {
             }
 
             const mergedPlayers = (rosterData.players || []).map(player => {
+                // Match FC data
                 const fcData = fantasyCalcMap.get(cleanseName(player.full_name)) || {};
                 const tradeValue = fcData.value || 0;
 
@@ -113,7 +132,9 @@ function GenericRosterDisplay({ platform }) {
                     fantasy_calc_value: tradeValue,
                     trade_value: tradeValue,
                     trend_30_day: fcData.trend30Day,
-                    redraft_value: fcData.redraftValue
+                    redraft_value: fcData.redraftValue,
+                    fc_rank: fcData.overallRank,
+                    // Gap calculated later in sortedRoster to ensure ranks exist
                 };
             });
 
@@ -246,6 +267,32 @@ function GenericRosterDisplay({ platform }) {
                 }
             },
             { header: rankHeader, accessor: rankAccessor, sortKey: rankAccessor, classNameKey: 'Overall Rank' },
+            {
+                header: 'Market Rank',
+                accessor: 'fc_rank',
+                sortKey: 'fc_rank',
+                classNameKey: 'Market Rank'
+            },
+            {
+                header: 'Value Gap',
+                accessor: 'value_gap',
+                sortKey: 'value_gap',
+                render: (player) => {
+                    const gap = player.value_gap;
+                    if (gap === null || gap === undefined) return '-';
+
+                    let className = 'gap-neutral';
+                    if (gap >= 40) className = 'gap-buy-huge';
+                    else if (gap >= 20) className = 'gap-buy-big';
+                    else if (gap >= 5) className = 'gap-buy';
+                    else if (gap <= -40) className = 'gap-sell-huge';
+                    else if (gap <= -20) className = 'gap-sell-big';
+                    else if (gap <= -5) className = 'gap-sell';
+
+                    const sign = gap > 0 ? '+' : '';
+                    return <span className={className}>{sign}{gap}</span>;
+                }
+            },
             { header: 'Pos. Rank', accessor: posRankAccessor, sortKey: posRankAccessor, classNameKey: 'Pos Rk' },
             { header: 'Tier', accessor: tierAccessor, sortKey: tierAccessor, classNameKey: 'Tier' },
         ];

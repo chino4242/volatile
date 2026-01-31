@@ -82,10 +82,13 @@ function FleaflickerFreeAgentsPage() {
 
             // Prepare base list with FantasyCalc values merged
             const playersWithValue = actualFreeAgents.map(player => {
-                const calcValueData = fantasyCalcValuesMap.get(cleanseName(player.full_name));
+                const fcData = fantasyCalcValuesMap.get(cleanseName(player.full_name)) || {};
                 return {
                     ...player,
-                    fantasy_calc_value: calcValueData?.value || 0
+                    fantasy_calc_value: fcData.value || 0,
+                    trend_30_day: fcData.trend30Day,
+                    redraft_value: fcData.redraftValue,
+                    fc_rank: fcData.overallRank
                 };
             });
 
@@ -144,7 +147,15 @@ function FleaflickerFreeAgentsPage() {
                 return 0;
             });
         }
-        return sortableItems;
+
+        // Inject Value Gap (Calculated here to ensure enriched data is present)
+        return sortableItems.map(p => {
+            const mkt = p.fc_rank;
+            // For free agents, we assume 1QB Rank is the primary league rank metric if available, else overall
+            const lg = p.one_qb_rank || p.overall_rank;
+            const gap = (mkt && lg) ? mkt - lg : null;
+            return { ...p, value_gap: gap };
+        });
     }, [enrichedAndRanked, sortConfig]);
 
     const requestSort = (key) => {
@@ -188,12 +199,83 @@ function FleaflickerFreeAgentsPage() {
         { header: 'Dynasty Rk', accessor: 'rank', sortKey: 'rank', isValueCell: true },
         { header: 'Full Name', accessor: 'full_name', classNameKey: 'Full Name' },
         { header: 'Pos', accessor: 'position' },
-        { header: 'Age', accessor: 'age' },
-        { header: 'Dynasty Val', accessor: 'fantasy_calc_value', sortKey: 'fantasy_calc_value', isValueCell: true, classNameKey: 'Trade Value' },
+        {
+            header: 'Age',
+            accessor: 'age',
+            render: (player) => {
+                const age = player.age;
+                if (!age) return '-';
+                let className = 'age-neutral';
+                if (age <= 24) className = 'age-youth';
+                else if (age >= 29) className = 'age-veteran';
+                return <span className={`age-badge ${className}`}>{age}</span>;
+            }
+        },
+        {
+            header: 'Trend',
+            accessor: 'trend_30_day',
+            sortKey: 'trend_30_day',
+            render: (player) => {
+                const trend = player.trend_30_day;
+                if (trend === undefined || trend === null) return '-';
+                const isPositive = trend > 0;
+                const isNegative = trend < 0;
+                const trendClass = isPositive ? 'trend-up' : (isNegative ? 'trend-down' : 'trend-flat');
+                const arrow = isPositive ? '▲' : (isNegative ? '▼' : '▬');
+                return (
+                    <span className={`trend-indicator ${trendClass}`}>
+                        <span className="trend-arrow">{arrow}</span>
+                        {Math.abs(trend)}
+                    </span>
+                );
+            }
+        },
+        {
+            header: 'Dynasty Val',
+            accessor: 'fantasy_calc_value',
+            sortKey: 'fantasy_calc_value',
+            isValueCell: true,
+            classNameKey: 'Trade Value',
+            render: (player) => {
+                const value = player.fantasy_calc_value || 0;
+                const percent = Math.min((value / 9000) * 100, 100);
+                return (
+                    <div className="value-bar-container">
+                        <div
+                            className="value-bar-fill"
+                            style={{ width: `${percent}%` }}
+                        />
+                        <span className="value-text">{value}</span>
+                    </div>
+                );
+            }
+        },
+        { header: 'Redraft Val', accessor: 'redraft_value', sortKey: 'redraft_value', render: (p) => p.redraft_value || '-' },
+        { header: '1QB Rank', accessor: 'one_qb_rank', sortKey: 'one_qb_rank', classNameKey: '1QB Rank' },
+        { header: 'Market Rank', accessor: 'fc_rank', sortKey: 'fc_rank', classNameKey: 'Market Rank' },
+        {
+            header: 'Value Gap',
+            accessor: 'value_gap',
+            sortKey: 'value_gap',
+            render: (player) => {
+                const gap = player.value_gap;
+                if (gap === null || gap === undefined) return '-';
+
+                let className = 'gap-neutral';
+                if (gap >= 40) className = 'gap-buy-huge';
+                else if (gap >= 20) className = 'gap-buy-big';
+                else if (gap >= 5) className = 'gap-buy';
+                else if (gap <= -40) className = 'gap-sell-huge';
+                else if (gap <= -20) className = 'gap-sell-big';
+                else if (gap <= -5) className = 'gap-sell';
+
+                const sign = gap > 0 ? '+' : '';
+                return <span className={className}>{sign}{gap}</span>;
+            }
+        },
         { header: 'Redraft Rk', accessor: 'redraft_overall_rank', sortKey: 'redraft_overall_rank', classNameKey: 'Redraft Rank' },
         { header: 'Redraft Pos Rk', accessor: 'redraft_pos_rank', sortKey: 'redraft_pos_rank', classNameKey: 'Redraft Pos Rank' },
         { header: 'Redraft Tier', accessor: 'redraft_tier', sortKey: 'redraft_tier' },
-        { header: 'Redraft Auction $', accessor: 'redraft_auction_value', sortKey: 'redraft_auction_value', classNameKey: 'Redraft Auction $' },
         { header: 'ZAP', accessor: 'zap_score', sortKey: 'zap_score', classNameKey: 'ZAP' },
         { header: 'Depth Score', accessor: 'depth_of_talent_score', sortKey: 'depth_of_talent_score', classNameKey: 'Depth Score' },
         { header: 'Category', accessor: 'category', classNameKey: 'Category', style: { minWidth: '150px' } },

@@ -470,3 +470,56 @@ tr.selected td input[type="checkbox"] {
   color: #6c757d;
   /* Gray */
 }
+
+/* --- Visual Insights: Value Gap Gradient --- */
+.gap-buy-huge {
+  color: #fff;
+  background-color: #155724;
+  /* Dark Green */
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.gap-buy-big {
+  color: #155724;
+  background-color: #d4edda;
+  /* Light Green */
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.gap-buy {
+  color: #28a745;
+  /* Green Text Only */
+  font-weight: 600;
+}
+
+.gap-neutral {
+  color: #6c757d;
+}
+
+.gap-sell {
+  color: #dc3545;
+  /* Red Text Only */
+  font-weight: 600;
+}
+
+.gap-sell-big {
+  color: #721c24;
+  background-color: #f8d7da;
+  /* Light Red */
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.gap-sell-huge {
+  color: #fff;
+  background-color: #721c24;
+  /* Dark Red */
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 4px;
+}

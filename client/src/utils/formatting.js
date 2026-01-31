@@ -68,6 +68,22 @@ export function getCellClassName(player, columnName) {
             else dynamicClass = 'tier-neutral';
             break;
 
+        case 'Market Rank':
+            // Market Rank Logic (Same as Overall Rank gradient)
+            const marketRank = player.fc_rank;
+            if (!marketRank) break;
+
+            if (marketRank <= 12) dynamicClass = 'rank-starter-elite';
+            else if (marketRank <= 24) dynamicClass = 'rank-starter-strong';
+            else if (marketRank <= 36) dynamicClass = 'rank-starter';
+            else if (marketRank <= 50) dynamicClass = 'rank-flex';
+            else if (marketRank <= 75) dynamicClass = 'rank-depth';
+            else if (marketRank <= 100) dynamicClass = 'rank-roster';
+            else if (marketRank <= 125) dynamicClass = 'rank-fringe';
+            else if (marketRank <= 150) dynamicClass = 'rank-deep';
+            else if (marketRank <= 200) dynamicClass = 'rank-sub';
+            break;
+
         case 'Overall Rank':
         case '1QB Rank': // Handle both standard and 1QB rank headers
             // Rank Logic: Top 12 (Elite/Green), Top 24 (Good/Light Green), Top 50 (Decent)
