@@ -11,6 +11,14 @@ export const getSleeperFreeAgents = (leagueId) => {
 };
 
 /**
+ * Fetch generic league info (settings, scoring, etc).
+ * @param {string} leagueId
+ */
+export const getSleeperLeague = (leagueId) => {
+    return get(`/api/sleeper/league/${leagueId}`);
+};
+
+/**
  * Fetch a specific roster from a Sleeper league.
  * @param {string} leagueId 
  * @param {string} rosterId 

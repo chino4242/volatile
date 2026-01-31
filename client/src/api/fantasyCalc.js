@@ -9,11 +9,12 @@ import { get } from './apiService';
  * @param {number} [options.ppr=0.5]
  * @returns {Promise<Object>} Map of player values
  */
-export const getFantasyCalcValues = ({ isDynasty = true, numQbs = 2, ppr = 0.5 } = {}) => {
+export const getFantasyCalcValues = ({ isDynasty = true, numQbs = 2, ppr = 0.5, numTeams = 12 } = {}) => {
     const query = new URLSearchParams({
         isDynasty: isDynasty.toString(),
         numQbs: numQbs.toString(),
-        ppr: ppr.toString()
+        ppr: ppr.toString(),
+        numTeams: numTeams.toString()
     });
     return get(`/api/values/fantasycalc?${query.toString()}`);
 };

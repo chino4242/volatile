@@ -66,14 +66,78 @@ def fetch_fantasy_calc_data(is_dynasty=True, num_qbs=2, ppr=1):
 def load_and_prep_excel(file_path, column_rename_map, original_name_col='Player'):
     try:
         print(f"Loading data from: {file_path}")
-        df = pd.read_excel(file_path, engine='openpyxl')
         
-        print(f"   - Original columns found: {list(df.columns)}")
+        xls = pd.ExcelFile(file_path, engine='openpyxl')
+        sheet_names = xls.sheet_names
+        print(f"   - Sheets found: {sheet_names}")
+        
+        df = None
+        target_sheet = None
+        
+        # Iterate through sheets to find the one with the data
+        for sheet in sheet_names:
+            print(f"   - Checking sheet: '{sheet}'...")
+            temp_df = pd.read_excel(file_path, sheet_name=sheet, engine='openpyxl')
+            
+            # Check 1: Is column in header?
+            if original_name_col in temp_df.columns:
+                print(f"     - Found '{original_name_col}' column in header.")
+                df = temp_df
+                target_sheet = sheet
+                break
+            
+            # Check 2: Scan first 10 rows for header
+            found_header = False
+            for i, row in temp_df.head(10).iterrows():
+                if row.astype(str).str.contains(original_name_col, case=False).any():
+                    print(f"     - Found header row at index {i+1}. Reloading sheet.")
+                    df = pd.read_excel(file_path, sheet_name=sheet, engine='openpyxl', header=i+1)
+                    target_sheet = sheet
+                    found_header = True
+                    break
+            if found_header:
+                break
+                
+            # Check 3: Fuzzy match column names (e.g. 'Player Name')
+            for col in temp_df.columns:
+                 if ('player' in col.lower() and 'name' in col.lower()) or (col.lower() == 'name'):
+                     print(f"     - Found fuzzy match '{col}' in header.")
+                     df = temp_df
+                     target_sheet = sheet
+                     break
+            if df is not None:
+                break
+
+        if df is None:
+             print(f"   - ERROR: Could not find '{original_name_col}' in any sheet.")
+             return pd.DataFrame()
+
+        print(f"   - Processing data from sheet: '{target_sheet}' with columns: {list(df.columns)}")
+
+        # Normalize column names
+        df.columns = df.columns.astype(str).str.strip()
+        
+        # Handle renaming again just in case (for the fuzzy match case or header row case)
+        if original_name_col not in df.columns:
+             for col in df.columns:
+                 if ('player' in col.lower() and 'name' in col.lower()) or (col.lower() == 'name'):
+                     df.rename(columns={col: original_name_col}, inplace=True)
+                     break
+        
+        if original_name_col not in df.columns:
+             # Should be caught by loop above, but double check
+             print(f"   - ERROR: Column '{original_name_col}' missing after processing.")
+             return pd.DataFrame()
 
         df.rename(columns={original_name_col: 'player_name_original'}, inplace=True)
         df = cleanse_df_names(df, 'player_name_original')
         df.rename(columns=column_rename_map, inplace=True)
         original_rows = len(df)
+        
+        if 'player_cleansed_name' not in df.columns:
+             print("   - ERROR: cleanse failed, column missing.")
+             return pd.DataFrame()
+
         df.drop_duplicates(subset=['player_cleansed_name'], keep='first', inplace=True)
         if len(df) < original_rows:
             print(f"   - De-duplicated {original_rows - len(df)} rows from {os.path.basename(file_path)}.")
@@ -131,22 +195,66 @@ def main():
         'Auction (Out of $200)': 'redraft_auction_value'
     }
 
-    sf_rankings_path = os.path.join(ANALYSIS_DATA_DIR, 'superflex', 'SuperflexRankings_September25.xlsx')
-    df_superflex = load_and_prep_excel(sf_rankings_path, sf_rename_map)
-    lrqb_path = os.path.join(ANALYSIS_DATA_DIR, 'common', 'LRQB_Postdraft_Rookies.xlsx')
-    df_lrqb = load_and_prep_excel(lrqb_path, lrqb_rename_map)
-    rsp_path = os.path.join(ANALYSIS_DATA_DIR, 'common', 'RSP_Rookies.xlsx')
-    df_rsp = load_and_prep_excel(rsp_path, rsp_rename_map)
-    redraft_path = os.path.join(ANALYSIS_DATA_DIR, '1QB', 'Redraft1QB_August26_25.xlsx')
-    df_redraft = load_and_prep_excel(redraft_path, redraft_rename_map)
+    # --- GENERIC PATH FINDING LOGIC ---
+    def get_newest_file(directory, extensions=['.xlsx', '.xls']):
+        """Finds the newest file in a directory with matching extensions."""
+        if not os.path.exists(directory):
+            print(f"   - Warning: Directory not found: {directory}")
+            return None
+            
+        files = []
+        for f in os.listdir(directory):
+            if any(f.endswith(ext) for ext in extensions) and not f.startswith('~'):
+                 files.append(os.path.join(directory, f))
+        
+        if not files:
+            print(f"   - Warning: No matching files found in {directory}")
+            return None
+            
+        # Sort by modification time
+        newest_file = max(files, key=os.path.getmtime)
+        print(f"   - Found newest file: {os.path.basename(newest_file)}")
+        return newest_file
+
+    sf_dir = os.path.join(ANALYSIS_DATA_DIR, 'superflex')
+    one_qb_dynasty_dir = os.path.join(ANALYSIS_DATA_DIR, '1QB', 'dynasty')
+    one_qb_redraft_dir = os.path.join(ANALYSIS_DATA_DIR, '1QB', 'redraft')
+    
+    # helper for finding newest file in specific folder
+    def get_newest_file_in_dir(directory):
+        if not os.path.exists(directory): return None
+        # Create dir if not exists (backend should handle, but for safety)
+        return get_newest_file(directory)
+
+    sf_path = get_newest_file_in_dir(sf_dir)
+    one_qb_path = get_newest_file_in_dir(one_qb_dynasty_dir)
+    redraft_path = get_newest_file_in_dir(one_qb_redraft_dir)
+    
+    # Legacy fallbacks if directories are empty/missing (optional, can remove if strict)
+    # But for now let's stick to the plan: Strict.
+    
+    print(f"Selected Data Sources:")
+    print(f"  SF Dynasty: {sf_path}")
+    print(f"  1QB Dynasty: {one_qb_path}")
+    print(f"  Redraft: {redraft_path}")
+
+    # Load data if paths exist
+    # Load data if paths exist
+    df_superflex = load_and_prep_excel(sf_path, sf_rename_map) if sf_path else pd.DataFrame()
+    
+    # Load 1QB (New) - map to one_qb_rank
+    one_qb_rename_map = {'Overall': 'one_qb_rank', 'Tier': 'one_qb_tier', 'Pos. Rank': 'one_qb_pos_rank'}
+    df_one_qb = load_and_prep_excel(one_qb_path, one_qb_rename_map, 'Player') if one_qb_path else pd.DataFrame()
+    
+    # Redraft
+    df_redraft = load_and_prep_excel(redraft_path, redraft_rename_map) if redraft_path else pd.DataFrame()
     
     print("\nEnriching full Sleeper list with analysis data by name...")
     df_enriched = df_sleeper_players
     
     analysis_dfs = {
         'Superflex': (df_superflex, list(sf_rename_map.values())),
-        'LRQB': (df_lrqb, list(lrqb_rename_map.values())),
-        'RSP': (df_rsp, list(rsp_rename_map.values())),
+        '1QB Dynasty': (df_one_qb, list(one_qb_rename_map.values())),
         'Redraft': (df_redraft, list(redraft_rename_map.values()))
     }
 

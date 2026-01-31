@@ -53,8 +53,26 @@ async function getFleaflickerLeagueRosters(leagueId) {
     }
 }
 
+/**
+ * Fetches Fleaflicker league rules (roster positions).
+ * @param {string} leagueId
+ */
+async function getFleaflickerLeagueRules(leagueId) {
+    const url = 'https://www.fleaflicker.com/api/FetchLeagueRules';
+    console.log(`Fetching Fleaflicker rules for league ${leagueId}...`);
+    try {
+        const response = await axios.get(url, { params: { sport: "NFL", league_id: leagueId } });
+        // Response structure: { rosterPositions: [...] }
+        return response.data;
+    } catch (error) {
+        console.error(`Error in getFleaflickerLeagueRules:`, error.message);
+        throw error;
+    }
+}
+
+
 // This allows the file to be used by other parts of your app (like your routes)
-module.exports = { getFleaflickerLeagueRosters, cleanseNameJs };
+module.exports = { getFleaflickerLeagueRosters, cleanseNameJs, getFleaflickerLeagueRules };
 
 
 // --- NEW: Test block to make the script runnable from the command line ---
@@ -68,7 +86,7 @@ if (require.main === module) {
             const rosters = await getFleaflickerLeagueRosters(testLeagueId);
             console.log("--- Successfully fetched and processed rosters ---");
             // Use console.dir for better object inspection in the terminal
-            console.dir(rosters, { depth: null }); 
+            console.dir(rosters, { depth: null });
         } catch (e) {
             console.error("--- Test run failed ---", e);
         }

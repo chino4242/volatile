@@ -53,7 +53,18 @@ export function usePlayerAnalysis(players) {
                 const merged = players.map(player => {
                     const id = String(player.sleeper_id || player.player_id);
                     const analysis = analysisMap.get(id) || {};
-                    return { ...player, ...analysis };
+
+                    // Preserve fantasy_calc_value and trade_value from FantasyCalc API
+                    // Don't let Python analysis overwrite these fields
+                    const { fantasy_calc_value: _, trade_value: __, ...analysisWithoutValues } = analysis;
+
+                    return {
+                        ...player,
+                        ...analysisWithoutValues,
+                        // Explicitly keep the FantasyCalc values if they exist
+                        ...(player.fantasy_calc_value !== undefined && { fantasy_calc_value: player.fantasy_calc_value }),
+                        ...(player.trade_value !== undefined && { trade_value: player.trade_value })
+                    };
                 });
 
                 setEnrichedPlayers(merged);

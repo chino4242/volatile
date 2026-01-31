@@ -46,9 +46,9 @@ export async function get(endpoint, options = {}) {
     // Ensure endpoint starts with '/'
     const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const url = `${REACT_APP_API_URL}${normalizedEndpoint}`;
-    
+
     console.log('Making API request to:', url); // Debug log
-    
+
     const response = await fetch(url, {
       method: 'GET',
       ...options,
@@ -71,19 +71,23 @@ export async function get(endpoint, options = {}) {
  * @returns {Promise<any>} - The data from the API.
  */
 export async function postToPythonApi(endpoint, body) {
-    try {
-        const response = await fetch(`${PYTHON_API_BASE_URL}${endpoint}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(body),
-        });
-        return handleResponse(response);
-    } catch (error) {
-        console.error(`POST request to ${PYTHON_API_BASE_URL}${endpoint} failed:`, error);
-        throw error;
-    }
+  try {
+    const url = `${PYTHON_API_BASE_URL}${endpoint}`;
+    console.log(`[PythonAPI] POST to ${url}`);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await handleResponse(response);
+    console.log(`[PythonAPI] Success. Received ${Array.isArray(data) ? data.length + ' items' : 'object'}`);
+    return data;
+  } catch (error) {
+    console.error(`POST request to ${PYTHON_API_BASE_URL}${endpoint} failed:`, error);
+    throw error;
+  }
 }
 
 // You could also add a generic post function for your Node.js API if needed.

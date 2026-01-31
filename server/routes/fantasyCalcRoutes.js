@@ -11,11 +11,12 @@ router.get('/values/fantasycalc', async (req, res) => {
         const isDynasty = req.query.isDynasty !== 'false'; // Defaults to true
         const numQbs = req.query.numQbs === '1' ? 1 : 2;     // Defaults to 2 (Superflex)
         const ppr = parseFloat(req.query.ppr) || 1;         // Defaults to 1 (Full PPR)
+        const numTeams = parseInt(req.query.numTeams) || 12; // Defaults to 12
 
-        console.log(`FantasyCalc route hit with params: isDynasty=${isDynasty}, numQbs=${numQbs}, ppr=${ppr}`);
+        console.log(`FantasyCalc route hit with params: isDynasty=${isDynasty}, numQbs=${numQbs}, ppr=${ppr}, numTeams=${numTeams}`);
 
-        const playerValueMap = await getFantasyCalcValues(isDynasty, numQbs, ppr);
-        
+        const playerValueMap = await getFantasyCalcValues(isDynasty, numQbs, ppr, numTeams);
+
         // Convert the Map to a plain object because JSON doesn't have a Map type.
         const playerValueObject = Object.fromEntries(playerValueMap);
 
@@ -23,7 +24,7 @@ router.get('/values/fantasycalc', async (req, res) => {
     } catch (error) {
         console.error(`Route error for /values/fantasycalc:`, error);
         const status = error.status || 500;
-        res.status(status).json({ error: error.message || "Failed to fetch FantasyCalc values." , data: error.data });
+        res.status(status).json({ error: error.message || "Failed to fetch FantasyCalc values.", data: error.data });
     }
 });
 

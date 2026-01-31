@@ -9,3 +9,11 @@ import { get } from './apiService';
 export const getFleaflickerLeagueData = (leagueId) => {
     return get(`/api/fleaflicker/league/${leagueId}/data`);
 };
+
+/**
+ * Fetch generic league info (settings, rules).
+ * @param {string} leagueId
+ */
+export const getFleaflickerLeagueSettings = (leagueId) => {
+    return get(`/api/fleaflicker/league/${leagueId}`);
+};

@@ -19,6 +19,7 @@ const sleeperFreeAgentRoutes = require('./routes/sleeperFreeAgentRoutes');
 const sleeperLeagueRoutes = require('./routes/sleeperLeagueRoutes');
 const fantasyCalcRoutes = require('./routes/fantasyCalcRoutes');
 const fleaflickerRoutes = require('./routes/fleaflickerRosterRoutes');
+const adminRoutes = require('./routes/adminRoutes'); // Import Admin Routes
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -63,6 +64,7 @@ app.get('/', (req, res) => {
 });
 
 // --- 2. Use all imported routes with platform-specific prefixes ---
+app.use('/api/admin', adminRoutes); // Mount Admin Routes (Specific first)
 app.use('/api/sleeper', [sleeperRosterRoutes, sleeperFreeAgentRoutes, sleeperLeagueRoutes]);
 app.use('/api/fleaflicker', fleaflickerRoutes);
 app.use('/api', fantasyCalcRoutes);

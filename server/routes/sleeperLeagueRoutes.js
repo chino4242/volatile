@@ -3,8 +3,21 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
+// This route will match /api/sleeper/league/:leagueId
+// Returns full league object (settings, roster_positions, etc.)
+router.get('/league/:leagueId', async (req, res) => {
+    const { leagueId } = req.params;
+    try {
+        console.log(`Fetching Sleeper league info for ${leagueId}`);
+        const response = await axios.get(`https://api.sleeper.app/v1/league/${leagueId}`);
+        res.json(response.data);
+    } catch (error) {
+        console.error(`Error fetching Sleeper league info for ${leagueId}:`, error.message);
+        res.status(500).json({ error: "Failed to fetch league info." });
+    }
+});
+
 // This route will match /api/sleeper/league/:leagueId/managers
-// because of how it's used in server.js
 router.get('/league/:leagueId/managers', async (req, res) => {
     const { leagueId } = req.params;
     try {
@@ -37,7 +50,7 @@ router.get('/league/:leagueId/managers', async (req, res) => {
         const managersWithRosters = rosters.map(roster => {
             const ownerId = roster.owner_id;
             const managerInfo = userMap.get(ownerId);
-            
+
             return {
                 user_id: ownerId,
                 roster_id: String(roster.roster_id),

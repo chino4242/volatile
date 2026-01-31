@@ -126,7 +126,7 @@ function FleaflickerRosterDisplay() {
     if (sortConfig.key === key) {
       direction = sortConfig.direction === 'ascending' ? 'descending' : 'ascending';
     } else {
-      direction = ['overall_rank', 'positional_rank', 'tier'].includes(key)
+      direction = ['overall_rank', 'one_qb_rank', 'positional_rank', 'tier', 'one_qb_tier'].includes(key)
         ? 'ascending'
         : 'descending';
     }
@@ -139,9 +139,9 @@ function FleaflickerRosterDisplay() {
     { header: 'Team', accessor: 'team' },
     { header: 'Age', accessor: 'age' },
     { header: 'Trade Value', accessor: 'fantasy_calc_value', sortKey: 'fantasy_calc_value', isValueCell: true, classNameKey: 'Trade Value' },
-    { header: 'Overall Rank', accessor: 'overall_rank', sortKey: 'overall_rank', classNameKey: 'Overall Rank' },
+    { header: '1QB Rank', accessor: 'one_qb_rank', sortKey: 'one_qb_rank', classNameKey: 'Overall Rank' },
     { header: 'Pos. Rank', accessor: 'positional_rank', sortKey: 'positional_rank', classNameKey: 'Pos Rk' },
-    { header: 'Tier', accessor: 'tier', sortKey: 'tier', classNameKey: 'Tier' },
+    { header: 'Tier', accessor: 'one_qb_tier', sortKey: 'one_qb_tier', classNameKey: 'Tier' },
   ];
 
   if (initialLoading) {
