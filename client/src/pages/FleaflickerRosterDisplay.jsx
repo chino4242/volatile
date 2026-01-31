@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { get } from '../api/apiService';
+import './RosterDisplay.css'; // Import the shared CSS
 
 const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
 
@@ -114,46 +115,81 @@ function FleaflickerRosterDisplay() {
     fetchData(leagueId, rosterId);
   }, [leagueId, rosterId, fetchData]);
 
+  // --- START: CELL-SPECIFIC STYLING LOGIC ---
+
+  const getPositionClass = (player) => {
+    if (!player.position) return '';
+    return player.position.toLowerCase(); 
+  };
+
+  const getTradeValueClass = (player) => {
+    if (player.trade_value > 5000) return 'super-elite';
+    if (player.trade_value > 2000) return 'elite';
+    if (player.trade_value > 1000) return 'positive';
+    return ''; 
+  };
+
+  const getOverallRankClass = (player) => {
+    const rank = player.overall_rank;
+    if (rank === 'N/A') return '';
+    
+    if (rank <= 24) return 'category-starter';
+    if (rank <= 75) return 'category-flex';
+    return 'category-bench';
+  };
+
+  const getTierClass = (player) => {
+    const tier = player.tier;
+    if (tier === 'N/A' || tier === null) return '';
+    
+    if (tier <= 1) return 'super-elite';
+    if (tier <= 5) return 'top-five';
+    if (tier <= 10) return 'top-ten';
+    return '';
+  };
+
+  // --- END: CELL-SPECIFIC STYLING LOGIC ---
+
   if (loading) {
-    return <div style={{ padding: '20px' }}>Loading roster and analysis...</div>;
+    return <div className="roster-container">Loading roster and analysis...</div>;
   }
 
   if (error) {
-    return <div style={{ padding: '20px', color: 'red' }}>Error: {error}</div>;
+    return <div className="roster-container" style={{ color: 'red' }}>Error: {error}</div>;
   }
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+    <div className="roster-container">
       <h2>
         Team: {ownerName} (Roster ID: {rosterId})
       </h2>
       <p>Players sorted by FantasyCalc Dynasty 1-QB Value (0.5 PPR).</p>
       
       {enrichedRoster.length > 0 ? (
-        <table style={{ borderCollapse: 'collapse', width: '100%', maxWidth: '1200px' }}>
+        <table className="roster-table">
           <thead>
-            <tr style={{ backgroundColor: '#f0f0f0' }}>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Full Name</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Position</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Team</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Age</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Trade Value</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Overall Rank</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Pos. Rank</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Tier</th>
+            <tr>
+              <th>Full Name</th>
+              <th>Position</th>
+              <th>Team</th>
+              <th>Age</th>
+              <th>Trade Value</th>
+              <th>Overall Rank</th>
+              <th>Pos. Rank</th>
+              <th>Tier</th>
             </tr>
           </thead>
           <tbody>
             {enrichedRoster.map((player) => (
               <tr key={player.player_id}>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.full_name || 'N/A'}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.position || 'N/A'}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.team || 'N/A'}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.age || 'N/A'}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}><strong>{player.trade_value}</strong></td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.overall_rank}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.positional_rank}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{player.tier}</td>
+                <td>{player.full_name || 'N/A'}</td>
+                <td className={getPositionClass(player)}>{player.position || 'N/A'}</td>
+                <td>{player.team || 'N/A'}</td>
+                <td>{player.age || 'N/A'}</td>
+                <td className={getTradeValueClass(player)}>{player.trade_value}</td>
+                <td className={getOverallRankClass(player)}>{player.overall_rank}</td>
+                <td>{player.positional_rank}</td>
+                <td className={getTierClass(player)}>{player.tier}</td>
               </tr>
             ))}
           </tbody>
