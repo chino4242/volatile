@@ -1,7 +1,8 @@
 // client/src/pages/RosterDisplay.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { get } from '../api/apiService';
+import { getSleeperRoster } from '../api/sleeper';
+import { getFantasyCalcValues } from '../api/fantasyCalc';
 import './RosterDisplay.css';
 import PlayerTable from '../components/PlayerTable';
 import { usePlayerAnalysis } from '../hooks/usePlayerAnalysis';
@@ -34,10 +35,10 @@ function RosterDisplay() {
     setInitialLoading(true);
     setFetchError(null);
     try {
-      // Parallel fetch: Sleeper Roster + FantasyCalc Values
+      // Parallel fetch: Sleeper Roster + FantasyCalc Values using API modules
       const [rosterData, calcValuesResponse] = await Promise.all([
-        get(`/api/sleeper/league/${currentLeagueId}/roster/${currentRosterId}`),
-        get(`/api/values/fantasycalc?isDynasty=true&numQbs=2&ppr=0.5`)
+        getSleeperRoster(currentLeagueId, currentRosterId),
+        getFantasyCalcValues({ isDynasty: true, numQbs: 2, ppr: 0.5 })
       ]);
 
       setManagerName(rosterData.manager_display_name || 'Unknown Owner');
@@ -57,7 +58,7 @@ function RosterDisplay() {
         return {
           ...player,
           fantasy_calc_value: tradeValue, // Standardized key
-          trade_value: tradeValue // Keeping alias just in case, but favoring fantasy_calc_value
+          trade_value: tradeValue
         };
       });
 
@@ -111,12 +112,12 @@ function RosterDisplay() {
 
   const columns = [
     { header: 'Full Name', accessor: 'full_name', classNameKey: 'Full Name' },
-    { header: 'Position', accessor: 'position', classNameKey: 'Full Name' }, // Reusing Full Name logic for pos color? Logic checks 'position' prop, so giving it classNameKey 'Full Name' triggers the check on player.position. Correct.
+    { header: 'Position', accessor: 'position', classNameKey: 'Full Name' },
     { header: 'Team', accessor: 'team' },
     { header: 'Age', accessor: 'age' },
     { header: 'Trade Value', accessor: 'fantasy_calc_value', sortKey: 'fantasy_calc_value', isValueCell: true, classNameKey: 'Trade Value' },
     { header: 'Overall Rank', accessor: 'overall_rank', sortKey: 'overall_rank', classNameKey: 'Overall Rank' },
-    { header: 'Pos. Rank', accessor: 'positional_rank', sortKey: 'positional_rank', classNameKey: 'Pos Rk' }, // Using 'Pos Rk' key from formatting.js
+    { header: 'Pos. Rank', accessor: 'positional_rank', sortKey: 'positional_rank', classNameKey: 'Pos Rk' },
     { header: 'Tier', accessor: 'tier', sortKey: 'tier', classNameKey: 'Tier' },
   ];
 

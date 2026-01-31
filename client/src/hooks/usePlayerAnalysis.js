@@ -1,7 +1,6 @@
 // client/src/hooks/usePlayerAnalysis.js
 import { useState, useEffect } from 'react';
-
-const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
+import { postToPythonApi } from '../api/apiService';
 
 /**
  * Custom hook to enrich a list of players with AI analysis and advanced stats from the Python API.
@@ -34,24 +33,21 @@ export function usePlayerAnalysis(players) {
                     return;
                 }
 
-                const response = await fetch(`${PYTHON_API_BASE_URL}/api/enriched-players/batch`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sleeper_ids: playerIds })
+                // Use the centralized API helper
+                const analysisData = await postToPythonApi('/api/enriched-players/batch', {
+                    sleeper_ids: playerIds
                 });
 
-                if (!response.ok) {
-                    throw new Error(`Python API error: ${response.status}`);
-                }
-
-                const analysisData = await response.json();
                 const analysisMap = new Map();
 
-                analysisData.forEach(p => {
-                    if (p.sleeper_id && !p.error) {
-                        analysisMap.set(String(p.sleeper_id), p);
-                    }
-                });
+                // Helper handles JSON parsing and error throwing, so analysisData is the array
+                if (Array.isArray(analysisData)) {
+                    analysisData.forEach(p => {
+                        if (p.sleeper_id && !p.error) {
+                            analysisMap.set(String(p.sleeper_id), p);
+                        }
+                    });
+                }
 
                 // Merge analysis back into original player objects
                 const merged = players.map(player => {
@@ -73,7 +69,7 @@ export function usePlayerAnalysis(players) {
         };
 
         fetchAnalysis();
-    }, [players]); // Re-run if input array changes. Caller must modify array only when needed.
+    }, [players]);
 
     return { enrichedPlayers, loading, error };
 }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { get } from '../api/apiService';
+import { getSleeperFreeAgents } from '../api/sleeper';
 import { styles } from '../styles';
 import './FleaflickerFreeAgentsPage.css'; // Shared CSS
 import PlayerTable from '../components/PlayerTable';
@@ -47,7 +47,9 @@ function FreeAgentsPage() {
     setInitialLoading(true);
     setFetchError(null);
     try {
-      const freeAgentsData = await get(`/api/sleeper/league/${currentLeagueId}/free-agents`);
+      // Use dedicated API function
+      const freeAgentsData = await getSleeperFreeAgents(currentLeagueId);
+
       // Just set the raw data, the hook handles the rest
       setSleeperPlayers(freeAgentsData);
     } catch (e) {
@@ -65,15 +67,10 @@ function FreeAgentsPage() {
   // Derived state: Filtered players
   const filteredFreeAgents = useMemo(() => {
     const skillPositions = ['QB', 'WR', 'RB', 'TE'];
-    // Note: fantasy_calc_value might be in sleeperPlayers or injected by analysis?
-    // Assuming it's in the data. If not, we might filter out valid players until analysis loads.
-    // For now, we filter based on what we have.
     return fullEnrichedList.filter(p => skillPositions.includes(p.position) && (p.fantasy_calc_value > 0 || p.fantasy_calc_value === undefined));
-    // Allow undefined so we don't hide everything while loading analysis if values come from there?
-    // Actually, standard behavior: Show what we have.
   }, [fullEnrichedList]);
 
-  // Sorting Logic (Standardized)
+  // Sorting Logic
   const sortedFreeAgents = useMemo(() => {
     let sortableItems = [...filteredFreeAgents];
     if (sortConfig.key !== null) {
@@ -174,8 +171,7 @@ function FreeAgentsPage() {
       <h1 style={styles.h1}>Top Sleeper Free Agents</h1>
       <p style={styles.p}>
         Found {sortedFreeAgents.length} relevant players for league {leagueId}.
-        {analysisLoading && " (Enhancing with AI analysis...)"}
-        {analysisError && ` (Analysis Error: ${analysisError})`}
+        {analysisLoading && " (Enhancing...)"}
       </p>
 
       <PlayerTable

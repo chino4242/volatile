@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { get } from '../api/apiService';
+import { getFleaflickerLeagueData } from '../api/fleaflicker';
+import { getFantasyCalcValues } from '../api/fantasyCalc';
 import './RosterDisplay.css'; // Import the shared CSS
 import PlayerTable from '../components/PlayerTable';
 import { usePlayerAnalysis } from '../hooks/usePlayerAnalysis';
@@ -37,10 +38,10 @@ function FleaflickerRosterDisplay() {
     setInitialLoading(true);
     setFetchError(null);
     try {
-      // Step 1: Fetch the league data and FantasyCalc values concurrently
+      // Step 1: Fetch the league data and FantasyCalc values concurrently using API modules
       const [leagueData, calcValuesResponse] = await Promise.all([
-        get(`/api/fleaflicker/league/${currentLeagueId}/data`),
-        get(`/api/values/fantasycalc?isDynasty=true&numQbs=1&ppr=0.5`)
+        getFleaflickerLeagueData(currentLeagueId),
+        getFantasyCalcValues({ isDynasty: true, numQbs: 1, ppr: 0.5 })
       ]);
 
       const specificRosterFromServer = leagueData.rosters?.find(r => String(r.roster_id) === String(currentRosterId));

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { get } from '../api/apiService';
+import { getFleaflickerLeagueData } from '../api/fleaflicker';
+import { getFantasyCalcValues } from '../api/fantasyCalc';
 import { styles } from '../styles';
 import './FleaflickerFreeAgentsPage.css';
 import { getCellClassName } from '../utils/formatting';
@@ -63,9 +64,10 @@ function FleaflickerFreeAgentsPage() {
         setFetchError(null);
         setSelectedPlayers(new Set());
         try {
+            // Use dedicated API functions
             const [fleaflickerData, fantasyCalcValues] = await Promise.all([
-                get(`/api/fleaflicker/league/${currentLeagueId}/data`),
-                get(`/api/values/fantasycalc?isDynasty=true&numQbs=1&ppr=0.5`)
+                getFleaflickerLeagueData(currentLeagueId),
+                getFantasyCalcValues({ isDynasty: true, numQbs: 1, ppr: 0.5 })
             ]);
 
             const masterPlayerList = fleaflickerData.master_player_list || [];
@@ -102,10 +104,6 @@ function FleaflickerFreeAgentsPage() {
     }, [leagueId, fetchData]);
 
     // Derived State: Rank and Filter
-    // We re-calculate 'rank' based on trade value HERE because it depends on the filter?
-    // Actually the original code filtered AND sorted AND assigned rank.
-    // We should do that here on `fullEnrichedList`.
-
     const enrichedAndRanked = useMemo(() => {
         const skillPositions = ['QB', 'WR', 'RB', 'TE'];
         // Filter valid players
@@ -229,7 +227,7 @@ function FleaflickerFreeAgentsPage() {
             <h1 style={styles.h1}>Top Fleaflicker Free Agents</h1>
             <p style={styles.p}>
                 Found {enrichedAndRanked.length} relevant players for league {leagueId}.
-                {analysisLoading && " (Enhancing with AI analysis...)"}
+                {analysisLoading && " (Enhancing...)"}
             </p>
 
             <PlayerTable
