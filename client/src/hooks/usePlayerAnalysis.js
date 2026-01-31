@@ -65,9 +65,24 @@ export function usePlayerAnalysis(players) {
                         ...(player.fantasy_calc_value !== undefined && { fantasy_calc_value: player.fantasy_calc_value }),
                         ...(player.trade_value !== undefined && { trade_value: player.trade_value })
                     };
-                });
+                })
 
                 setEnrichedPlayers(merged);
+
+                // Debug: Check what fields we're getting from Python
+                if (merged.length > 0) {
+                    const samplePlayer = merged.find(p => p.full_name && p.full_name.toLowerCase().includes('herbert'));
+                    if (samplePlayer) {
+                        console.log('🐍 Python enrichment sample (Herbert):', {
+                            full_name: samplePlayer.full_name,
+                            positional_rank: samplePlayer.positional_rank,
+                            overall_rank: samplePlayer.overall_rank,
+                            one_qb_rank: samplePlayer.one_qb_rank,
+                            tier: samplePlayer.tier,
+                            one_qb_tier: samplePlayer.one_qb_tier
+                        });
+                    }
+                }
 
             } catch (err) {
                 console.error("Failed to fetch player analysis:", err);

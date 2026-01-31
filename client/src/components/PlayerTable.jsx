@@ -117,11 +117,15 @@ const PlayerTable = ({
                                         content = player[col.accessor];
                                     }
 
-                                    // Handle missing values gracefully if needed, or leave to accessor
+                                    // Handle missing values gracefully
                                     if (content === undefined || content === null) {
-                                        content = (col.defaultValue !== undefined) ? col.defaultValue : 'N/A';
-                                        // If accessor explicitly returned null/undefined, maybe standard N/A?
-                                        // But sometimes 0 is valid.
+                                        // Show "Unranked" for ranking/tier fields
+                                        const rankingFields = ['overall_rank', 'one_qb_rank', 'positional_rank', 'tier', 'one_qb_tier', 'redraft_overall_rank', 'redraft_tier'];
+                                        if (rankingFields.includes(col.accessor)) {
+                                            content = 'Unranked';
+                                        } else {
+                                            content = (col.defaultValue !== undefined) ? col.defaultValue : 'N/A';
+                                        }
                                         if (content === 'N/A' && col.accessor === 'position') content = ''; // e.g.
                                     }
 

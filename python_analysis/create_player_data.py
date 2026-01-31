@@ -179,7 +179,7 @@ def main():
 
     ai_analysis_lookup = load_consolidated_analysis(CONSOLIDATED_ANALYSIS_PATH)
 
-    sf_rename_map = {'Overall': 'overall_rank', 'Pos. Rank': 'positional_rank', 'Tier': 'tier'}
+    sf_rename_map = {'Overall': 'overall_rank', 'Positional Rank': 'positional_rank', 'Tier': 'tier'}
     lrqb_rename_map = {'ZAP Score': 'zap_score', 'Category': 'category', 'Comparables': 'comparables', 'Draft Capital Delta': 'draft_capital_delta', 'Notes': 'notes_lrqb'}
     rsp_rename_map = {
         'RSP Pos. Ranking': 'rsp_pos_rank', 'RSP 2023-2025 Rank': 'rsp_2023_2025_rank', 'RP 2021-2025 Rank': 'rp_2021_2025_rank',
@@ -243,7 +243,7 @@ def main():
     df_superflex = load_and_prep_excel(sf_path, sf_rename_map) if sf_path else pd.DataFrame()
     
     # Load 1QB (New) - map to one_qb_rank
-    one_qb_rename_map = {'Overall': 'one_qb_rank', 'Tier': 'one_qb_tier', 'Pos. Rank': 'one_qb_pos_rank'}
+    one_qb_rename_map = {'Overall': 'one_qb_rank', 'Tier': 'one_qb_tier', 'Positional Rank': 'one_qb_pos_rank'}
     df_one_qb = load_and_prep_excel(one_qb_path, one_qb_rename_map, 'Player') if one_qb_path else pd.DataFrame()
     
     # Redraft

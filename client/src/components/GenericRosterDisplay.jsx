@@ -147,17 +147,20 @@ function GenericRosterDisplay({ platform }) {
         let rankAccessor = 'overall_rank';
         let rankHeader = 'Overall Rank';
         let tierAccessor = 'tier';
+        let posRankAccessor = 'positional_rank';
 
         // Override using the manual toggle
         if (effectiveFormat === '1QB') {
             rankAccessor = 'one_qb_rank';
             rankHeader = '1QB Rank';
             tierAccessor = 'one_qb_tier';
+            posRankAccessor = 'one_qb_pos_rank';
         } else {
             // Default / SF
             rankAccessor = 'overall_rank';
             rankHeader = 'Overall Rank';
             tierAccessor = 'tier';
+            posRankAccessor = 'positional_rank';
         }
 
         // Use Redraft specific columns if that was the original detected format? 
@@ -175,7 +178,7 @@ function GenericRosterDisplay({ platform }) {
             { header: 'Age', accessor: 'age' },
             { header: 'Trade Value', accessor: 'fantasy_calc_value', sortKey: 'fantasy_calc_value', isValueCell: true, classNameKey: 'Trade Value' },
             { header: rankHeader, accessor: rankAccessor, sortKey: rankAccessor, classNameKey: 'Overall Rank' },
-            { header: 'Pos. Rank', accessor: 'positional_rank', sortKey: 'positional_rank', classNameKey: 'Pos Rk' },
+            { header: 'Pos. Rank', accessor: posRankAccessor, sortKey: posRankAccessor, classNameKey: 'Pos Rk' },
             { header: 'Tier', accessor: tierAccessor, sortKey: tierAccessor, classNameKey: 'Tier' },
         ];
     }, [effectiveFormat, leagueFormat]);
