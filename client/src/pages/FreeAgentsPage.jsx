@@ -6,8 +6,7 @@ import { get } from '../api/apiService';
 import { styles } from '../styles';
 import './FleaflickerFreeAgentsPage.css'; // Shared CSS
 import PlayerTable from '../components/PlayerTable';
-
-const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
+import { usePlayerAnalysis } from '../hooks/usePlayerAnalysis';
 
 // A reusable Modal component for popups
 const Modal = ({ content, onClose }) => {
@@ -26,60 +25,36 @@ const Modal = ({ content, onClose }) => {
 function FreeAgentsPage() {
   const { leagueId } = useParams();
 
-  const [enrichedFreeAgents, setEnrichedFreeAgents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Raw sleeper players fetched from server
+  const [sleeperPlayers, setSleeperPlayers] = useState([]);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+
   const [modalContent, setModalContent] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: 'fantasy_calc_value', direction: 'descending' });
 
+  // Use the hook to enrich players
+  const { enrichedPlayers: fullEnrichedList, loading: analysisLoading, error: analysisError } = usePlayerAnalysis(sleeperPlayers);
+
   const fetchData = useCallback(async (currentLeagueId) => {
     if (!currentLeagueId) {
-      setError("A League ID is required.");
-      setLoading(false);
+      setFetchError("A League ID is required.");
+      setInitialLoading(false);
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    setInitialLoading(true);
+    setFetchError(null);
     try {
       const freeAgentsData = await get(`/api/sleeper/league/${currentLeagueId}/free-agents`);
-
-      const playerIds = freeAgentsData.map(p => p.player_id);
-      let analysisDataMap = new Map();
-
-      if (playerIds.length > 0) {
-        const analysisResponse = await fetch(`${PYTHON_API_BASE_URL}/api/enriched-players/batch`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sleeper_ids: playerIds })
-        });
-        if (!analysisResponse.ok) throw new Error(`Python API error: ${analysisResponse.status}`);
-
-        const analysisPlayers = await analysisResponse.json();
-        analysisPlayers.forEach(player => {
-          if (player?.sleeper_id && !player.error) {
-            analysisDataMap.set(String(player.sleeper_id), player);
-          }
-        });
-      }
-
-      const finalFreeAgents = freeAgentsData.map(player => {
-        const analysis = analysisDataMap.get(String(player.player_id));
-        return { ...player, ...analysis };
-      });
-
-      const skillPositions = ['QB', 'WR', 'RB', 'TE'];
-      const filtered = finalFreeAgents
-        .filter(p => skillPositions.includes(p.position) && p.fantasy_calc_value > 0);
-
-      setEnrichedFreeAgents(filtered);
-
+      // Just set the raw data, the hook handles the rest
+      setSleeperPlayers(freeAgentsData);
     } catch (e) {
       console.error("Failed to fetch page data:", e);
-      setError(e.message);
+      setFetchError(e.message);
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
   }, []);
 
@@ -87,9 +62,20 @@ function FreeAgentsPage() {
     fetchData(leagueId);
   }, [leagueId, fetchData]);
 
+  // Derived state: Filtered players
+  const filteredFreeAgents = useMemo(() => {
+    const skillPositions = ['QB', 'WR', 'RB', 'TE'];
+    // Note: fantasy_calc_value might be in sleeperPlayers or injected by analysis?
+    // Assuming it's in the data. If not, we might filter out valid players until analysis loads.
+    // For now, we filter based on what we have.
+    return fullEnrichedList.filter(p => skillPositions.includes(p.position) && (p.fantasy_calc_value > 0 || p.fantasy_calc_value === undefined));
+    // Allow undefined so we don't hide everything while loading analysis if values come from there?
+    // Actually, standard behavior: Show what we have.
+  }, [fullEnrichedList]);
+
   // Sorting Logic (Standardized)
   const sortedFreeAgents = useMemo(() => {
-    let sortableItems = [...enrichedFreeAgents];
+    let sortableItems = [...filteredFreeAgents];
     if (sortConfig.key !== null) {
       sortableItems.sort((a, b) => {
         let aValue = a[sortConfig.key];
@@ -107,7 +93,7 @@ function FreeAgentsPage() {
       });
     }
     return sortableItems;
-  }, [enrichedFreeAgents, sortConfig]);
+  }, [filteredFreeAgents, sortConfig]);
 
   const requestSort = (key) => {
     let direction = 'ascending';
@@ -180,13 +166,17 @@ function FreeAgentsPage() {
     }
   ];
 
-  if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
-  if (error) return <div style={{ ...styles.pageContainer, ...styles.errorText }}>Error: {error}</div>;
+  if (initialLoading) return <div style={styles.pageContainer}>Loading free agents...</div>;
+  if (fetchError) return <div style={{ ...styles.pageContainer, ...styles.errorText }}>Error: {fetchError}</div>;
 
   return (
     <div style={styles.pageContainer}>
       <h1 style={styles.h1}>Top Sleeper Free Agents</h1>
-      <p style={styles.p}>Found {enrichedFreeAgents.length} relevant players for league {leagueId}, sorted by trade value.</p>
+      <p style={styles.p}>
+        Found {sortedFreeAgents.length} relevant players for league {leagueId}.
+        {analysisLoading && " (Enhancing with AI analysis...)"}
+        {analysisError && ` (Analysis Error: ${analysisError})`}
+      </p>
 
       <PlayerTable
         players={sortedFreeAgents}

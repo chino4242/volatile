@@ -5,9 +5,9 @@ import { useParams } from 'react-router-dom';
 import { get } from '../api/apiService';
 import { styles } from '../styles';
 import './FleaflickerFreeAgentsPage.css';
+import { getCellClassName } from '../utils/formatting';
 import PlayerTable from '../components/PlayerTable';
-
-const PYTHON_API_BASE_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:5002';
+import { usePlayerAnalysis } from '../hooks/usePlayerAnalysis';
 
 // A reusable Modal component for popups
 const Modal = ({ content, onClose }) => {
@@ -39,22 +39,28 @@ function parseAuctionValue(value) {
 function FleaflickerFreeAgentsPage() {
     const { leagueId } = useParams();
 
-    const [enrichedFreeAgents, setEnrichedFreeAgents] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    // Base players with just Fleaflicker Data + FantasyCalc Value
+    const [basePlayers, setBasePlayers] = useState([]);
+
+    // UI State
+    const [initialLoading, setInitialLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(null);
     const [modalContent, setModalContent] = useState(null);
     const [hoveredRow, setHoveredRow] = useState(null);
     const [selectedPlayers, setSelectedPlayers] = useState(new Set());
     const [sortConfig, setSortConfig] = useState({ key: 'rank', direction: 'ascending' });
 
+    // Use hook to enrich with Python analysis
+    const { enrichedPlayers: fullEnrichedList, loading: analysisLoading, error: analysisError } = usePlayerAnalysis(basePlayers);
+
     const fetchData = useCallback(async (currentLeagueId) => {
         if (!currentLeagueId) {
-            setError("A Fleaflicker League ID is required.");
-            setLoading(false);
+            setFetchError("A Fleaflicker League ID is required.");
+            setInitialLoading(false);
             return;
         }
-        setLoading(true);
-        setError(null);
+        setInitialLoading(true);
+        setFetchError(null);
         setSelectedPlayers(new Set());
         try {
             const [fleaflickerData, fantasyCalcValues] = await Promise.all([
@@ -70,54 +76,24 @@ function FleaflickerFreeAgentsPage() {
 
             const actualFreeAgents = masterPlayerList.filter(p => !rosteredPlayerNames.has(cleanseName(p.full_name)));
 
-            const playerIds = actualFreeAgents.map(p => p.sleeper_id);
-            let analysisDataMap = new Map();
-
-            if (playerIds.length > 0) {
-                const analysisResponse = await fetch(`${PYTHON_API_BASE_URL}/api/enriched-players/batch`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sleeper_ids: playerIds })
-                });
-                if (!analysisResponse.ok) throw new Error(`Python API error: ${analysisResponse.status}`);
-
-                const analysisPlayers = await analysisResponse.json();
-                analysisPlayers.forEach(player => {
-                    if (player?.sleeper_id && !player.error) {
-                        analysisDataMap.set(String(player.sleeper_id), player);
-                    }
-                });
-            }
-
             const fantasyCalcValuesMap = new Map(Object.entries(fantasyCalcValues));
 
-            const finalFreeAgents = actualFreeAgents.map(player => {
-                const analysis = analysisDataMap.get(String(player.sleeper_id));
+            // Prepare base list with FantasyCalc values merged
+            const playersWithValue = actualFreeAgents.map(player => {
                 const calcValueData = fantasyCalcValuesMap.get(cleanseName(player.full_name));
-
                 return {
                     ...player,
-                    ...analysis,
                     fantasy_calc_value: calcValueData?.value || 0
                 };
             });
 
-            const skillPositions = ['QB', 'WR', 'RB', 'TE'];
-            const rankedFreeAgents = finalFreeAgents
-                .filter(p => skillPositions.includes(p.position) && p.fantasy_calc_value > 0)
-                .sort((a, b) => (b.fantasy_calc_value || 0) - (a.fantasy_calc_value || 0))
-                .map((player, index) => ({
-                    ...player,
-                    rank: index + 1
-                }));
-
-            setEnrichedFreeAgents(rankedFreeAgents);
+            setBasePlayers(playersWithValue);
 
         } catch (e) {
             console.error("Failed to fetch Fleaflicker page data:", e);
-            setError(e.message);
+            setFetchError(e.message);
         } finally {
-            setLoading(false);
+            setInitialLoading(false);
         }
     }, []);
 
@@ -125,8 +101,30 @@ function FleaflickerFreeAgentsPage() {
         fetchData(leagueId);
     }, [leagueId, fetchData]);
 
+    // Derived State: Rank and Filter
+    // We re-calculate 'rank' based on trade value HERE because it depends on the filter?
+    // Actually the original code filtered AND sorted AND assigned rank.
+    // We should do that here on `fullEnrichedList`.
+
+    const enrichedAndRanked = useMemo(() => {
+        const skillPositions = ['QB', 'WR', 'RB', 'TE'];
+        // Filter valid players
+        const filtered = fullEnrichedList
+            .filter(p => skillPositions.includes(p.position) && p.fantasy_calc_value > 0);
+
+        // Sort by value desc to assign Rank
+        const ranked = filtered
+            .sort((a, b) => (b.fantasy_calc_value || 0) - (a.fantasy_calc_value || 0))
+            .map((player, index) => ({
+                ...player,
+                rank: index + 1
+            }));
+
+        return ranked;
+    }, [fullEnrichedList]);
+
     const sortedFreeAgents = useMemo(() => {
-        let sortableItems = [...enrichedFreeAgents];
+        let sortableItems = [...enrichedAndRanked];
         if (sortConfig.key !== null) {
             sortableItems.sort((a, b) => {
                 let aValue = a[sortConfig.key];
@@ -149,7 +147,7 @@ function FleaflickerFreeAgentsPage() {
             });
         }
         return sortableItems;
-    }, [enrichedFreeAgents, sortConfig]);
+    }, [enrichedAndRanked, sortConfig]);
 
     const requestSort = (key) => {
         let direction = 'ascending';
@@ -165,7 +163,7 @@ function FleaflickerFreeAgentsPage() {
 
     const handleSelectAll = (event) => {
         if (event.target.checked) {
-            const allPlayerIds = new Set(enrichedFreeAgents.map(p => p.sleeper_id));
+            const allPlayerIds = new Set(enrichedAndRanked.map(p => p.sleeper_id));
             setSelectedPlayers(allPlayerIds);
         } else {
             setSelectedPlayers(new Set());
@@ -223,13 +221,16 @@ function FleaflickerFreeAgentsPage() {
         }
     ];
 
-    if (loading) return <div style={styles.pageContainer}>Loading free agents and analysis...</div>;
-    if (error) return <div style={{ ...styles.pageContainer, ...styles.errorText }}>Error: {error}</div>;
+    if (initialLoading) return <div style={styles.pageContainer}>Loading free agents...</div>;
+    if (fetchError) return <div style={{ ...styles.pageContainer, ...styles.errorText }}>Error: {fetchError}</div>;
 
     return (
         <div style={styles.pageContainer}>
             <h1 style={styles.h1}>Top Fleaflicker Free Agents</h1>
-            <p style={styles.p}>Found {enrichedFreeAgents.length} relevant players for league {leagueId}.</p>
+            <p style={styles.p}>
+                Found {enrichedAndRanked.length} relevant players for league {leagueId}.
+                {analysisLoading && " (Enhancing with AI analysis...)"}
+            </p>
 
             <PlayerTable
                 players={sortedFreeAgents}
