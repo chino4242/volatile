@@ -22,6 +22,10 @@
         "typescript": "^5.9.3"
     },
     "dependencies": {
-        "aws-amplify": "^6.16.0"
+        "aws-amplify": "^6.16.0",
+        "aws-serverless-express": "^3.4.0",
+        "axios": "^1.13.4",
+        "cors": "^2.8.6",
+        "express": "^5.2.1"
     }
 }
