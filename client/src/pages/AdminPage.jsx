@@ -82,8 +82,9 @@ function AdminPage() {
         setProcessLog('Starting data processing...\n');
 
         try {
+
             const result = await triggerProcess();
-            setProcessLog(prev => prev + result.output + '\n\n✅ DONE! Data updated.');
+            setProcessLog(prev => prev + result.message + '\n(This runs in the cloud, check AWS logs for details)\n\n✅ DONE! Job submitted.');
         } catch (err) {
             console.error(err);
             setProcessLog(prev => prev + `\n❌ FATAL ERROR: ${err.message}`);

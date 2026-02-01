@@ -264,3 +264,15 @@
 2026-01-31T19:39:41.634Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&ppr=1&numTeams=12
 2026-01-31T19:39:41.675Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&ppr=1&numTeams=12
 2026-01-31T19:39:41.732Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&ppr=1&numTeams=12
+2026-01-31T19:41:25.539Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&ppr=1&numTeams=12
+2026-01-31T19:41:25.770Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&ppr=1&numTeams=12
+2026-02-01T08:11:43.802Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&ppr=1&numTeams=12
+2026-02-01T08:11:44.064Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&ppr=1&numTeams=12
+2026-02-01T08:11:45.992Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&ppr=1&numTeams=12
+2026-02-01T08:11:46.113Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&ppr=1&numTeams=12
+2026-02-01T08:11:46.207Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&ppr=1&numTeams=12
+2026-02-01T08:11:46.302Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&ppr=1&numTeams=12
+2026-02-01T08:12:27.964Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&ppr=1&numTeams=10
+2026-02-01T08:12:31.465Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&ppr=0.5&numTeams=10
+2026-02-01T08:13:26.688Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&ppr=1&numTeams=12
+2026-02-01T08:13:26.976Z https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&ppr=1&numTeams=12

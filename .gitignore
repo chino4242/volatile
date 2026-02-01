@@ -12,3 +12,26 @@ server/.env
 
 #Optional Mac files
 .DS_Store
+
+# amplify
+.amplify
+amplify_outputs*
+amplifyconfiguration*
+
+# Python local dependencies (Lambda)
+python_analysis/__pycache__/
+python_analysis/.pytest_cache/
+python_analysis/bin/
+python_analysis/certifi*/
+python_analysis/charset_normalizer*/
+python_analysis/dateutil/
+python_analysis/et_xmlfile*/
+python_analysis/idna*/
+python_analysis/numpy*/
+python_analysis/openpyxl*/
+python_analysis/pandas*/
+python_analysis/python_dateutil*/
+python_analysis/requests*/
+python_analysis/six*/
+python_analysis/tzdata*/
+python_analysis/urllib3*/

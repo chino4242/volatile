@@ -2,109 +2,115 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs-extra');
-const { exec } = require('child_process');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
-// --- Configuration ---
-// Base directory where python_analysis/data lives
-// server/routes/ -> server/ -> volatile/ -> python_analysis/data
-const DATA_BASE_DIR = path.resolve(__dirname, '..', '..', 'python_analysis', 'data');
+// AWS Clients
+// Region and credentials picked up from environment or ~/.aws/credentials
+const s3Client = new S3Client({});
+const lambdaClient = new LambdaClient({});
 
-// Map frontend categories to folder names
+// Configuration
+const DATA_BUCKET_NAME = process.env.DATA_BUCKET_NAME;
+const PROCESSOR_FUNCTION_NAME = process.env.PROCESSOR_FUNCTION_NAME;
+
+// Map frontend categories to S3 keys
 const CATEGORY_MAP = {
-    'superflex': 'superflex',
-    '1qb_dynasty': '1QB/dynasty', // New subfolder
-    'redraft': '1QB/redraft',     // New subfolder
+    'superflex': 'uploads/superflex/',
+    '1qb_dynasty': 'uploads/1QB/dynasty/',
+    'redraft': 'uploads/1QB/redraft/',
 };
 
-// --- Multer Storage Engine ---
-const storage = multer.diskStorage({
-    destination: async function (req, file, cb) {
-        const category = req.body.category;
-
-        if (!category || !CATEGORY_MAP[category]) {
-            return cb(new Error('Invalid or missing category'));
-        }
-
-        const targetFolder = path.join(DATA_BASE_DIR, CATEGORY_MAP[category]);
-
-        try {
-            await fs.ensureDir(targetFolder); // Ensure folder exists
-            cb(null, targetFolder); // Set destination
-        } catch (err) {
-            console.error("Error creating directory:", err);
-            cb(err);
-        }
-    },
-    filename: function (req, file, cb) {
-        // Keep original filename, prepended with timestamp to ensure uniqueness/newest status
-        // Format: timestamp_originalName.xlsx
-        const timestamp = Date.now();
-        // Sanitize filename just in case
-        const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-        cb(null, `${timestamp}_${safeName}`);
-    }
-});
-
+// Use memory storage to get the file buffer directly
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-
 
 /**
  * POST /api/admin/upload
  * Expects multipart/form-data with:
  * - file: The file object
- * - category: 'superflex', 'redraft', 'rsp', or 'lrqb'
+ * - category: 'superflex', 'redraft', '1qb_dynasty'
  */
-router.post('/upload', upload.single('file'), (req, res) => {
+router.post('/upload', upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded.' });
     }
 
-    console.log(`[Admin] File uploaded: ${req.file.path} (Category: ${req.body.category})`);
+    const category = req.body.category;
+    if (!category || !CATEGORY_MAP[category]) {
+        return res.status(400).json({ error: 'Invalid or missing category' });
+    }
 
-    res.json({
-        message: 'File uploaded successfully.',
-        filename: req.file.filename,
-        path: req.file.path
-    });
+    if (!DATA_BUCKET_NAME) {
+        // Log warning but allow proceeding if testing locally without bucket env
+        console.warn('WARNING: DATA_BUCKET_NAME not set. Using mock success for local testing if needed, or erroring.');
+        // strictly error for now to ensure config is right
+        return res.status(500).json({ error: 'Server misconfiguration: DATA_BUCKET_NAME not set.' });
+    }
+
+    const prefix = CATEGORY_MAP[category];
+    const timestamp = Date.now();
+    // Sanitize filename
+    const safeName = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const key = `${prefix}${timestamp}_${safeName}`;
+
+    try {
+        const command = new PutObjectCommand({
+            Bucket: DATA_BUCKET_NAME,
+            Key: key,
+            Body: req.file.buffer,
+            ContentType: req.file.mimetype
+        });
+
+        await s3Client.send(command);
+
+        console.log(`[Admin] Uploaded to S3: s3://${DATA_BUCKET_NAME}/${key}`);
+
+        res.json({
+            message: 'File uploaded successfully to S3.',
+            filename: key,
+            path: `s3://${DATA_BUCKET_NAME}/${key}`
+        });
+    } catch (error) {
+        console.error("[Admin] S3 Upload Error:", error);
+        res.status(500).json({ error: 'Failed to upload file to S3.', details: error.message });
+    }
 });
 
 /**
  * POST /api/admin/process
- * Triggers the Python enrichment script.
+ * Triggers the Python enrichment Lambda.
  */
-router.post('/process', (req, res) => {
-    console.log("[Admin] Triggering Python processing script...");
+router.post('/process', async (req, res) => {
+    console.log("[Admin] Triggering Python processing Lambda...");
 
-    // Path to the python script
-    const pyScriptDir = path.resolve(__dirname, '..', '..', 'python_analysis');
-    const pyScript = path.join(pyScriptDir, 'create_player_data.py');
+    if (!PROCESSOR_FUNCTION_NAME) {
+        return res.status(500).json({ error: 'Server misconfiguration: PROCESSOR_FUNCTION_NAME not set.' });
+    }
 
-    // Command to run python script
-    const command = `python "${pyScript}"`;
+    try {
+        const command = new InvokeCommand({
+            FunctionName: PROCESSOR_FUNCTION_NAME,
+            InvocationType: 'Event', // Asynchronous execution
+            Payload: JSON.stringify({}) // Pass any needed event data here
+        });
 
-    exec(command, { cwd: pyScriptDir }, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`[Admin] Exec error: ${error}`);
-            // Return 500 but also the stderr so admin knows what broke
-            return res.status(500).json({
-                error: 'Script execution failed.',
-                details: stderr || error.message
-            });
-        }
+        const response = await lambdaClient.send(command);
 
-        console.log(`[Admin] Script Output: ${stdout}`);
-
-        if (stderr) {
-            console.warn(`[Admin] Script Stderr: ${stderr}`);
-        }
+        console.log(`[Admin] Lambda Triggered. Status: ${response.StatusCode}`);
 
         res.json({
-            message: 'Data processing complete.',
-            output: stdout
+            message: 'Processing job submitted.',
+            statusCode: response.StatusCode
         });
-    });
+
+    } catch (error) {
+        console.error("[Admin] Lambda Invoke Error:", error);
+        res.status(500).json({
+            error: 'Failed to trigger processing job.',
+            details: error.message
+        });
+    }
 });
 
 module.exports = router;

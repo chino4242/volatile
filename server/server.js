@@ -1,3 +1,4 @@
+require('dotenv').config();
 // server/server.js
 
 // Keep these error handlers at the top
@@ -20,6 +21,7 @@ const sleeperLeagueRoutes = require('./routes/sleeperLeagueRoutes');
 const fantasyCalcRoutes = require('./routes/fantasyCalcRoutes');
 const fleaflickerRoutes = require('./routes/fleaflickerRosterRoutes');
 const adminRoutes = require('./routes/adminRoutes'); // Import Admin Routes
+const enrichedPlayerRoutes = require('./routes/enrichedPlayerRoutes'); // Import DynamoDB Routes
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -68,6 +70,7 @@ app.use('/api/admin', adminRoutes); // Mount Admin Routes (Specific first)
 app.use('/api/sleeper', [sleeperRosterRoutes, sleeperFreeAgentRoutes, sleeperLeagueRoutes]);
 app.use('/api/fleaflicker', fleaflickerRoutes);
 app.use('/api', fantasyCalcRoutes);
+app.use('/api', enrichedPlayerRoutes); // Mount /api/enriched-players endpoints
 
 // Simple test route
 app.get('/api/hello', (req, res) => {
