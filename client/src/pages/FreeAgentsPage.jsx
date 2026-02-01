@@ -35,7 +35,7 @@ function FreeAgentsPage() {
   const [sortConfig, setSortConfig] = useState({ key: 'fantasy_calc_value', direction: 'descending' });
 
   // Use the hook to enrich players
-  const { enrichedPlayers: fullEnrichedList, loading: analysisLoading, error: analysisError } = usePlayerAnalysis(sleeperPlayers);
+  const { enrichedPlayers: fullEnrichedList, loading: analysisLoading } = usePlayerAnalysis(sleeperPlayers);
 
   const fetchData = useCallback(async (currentLeagueId) => {
     if (!currentLeagueId) {

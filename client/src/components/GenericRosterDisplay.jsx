@@ -74,7 +74,7 @@ function GenericRosterDisplay({ platform }) {
             });
         }
         return sortableItems;
-    }, [enrichedPlayers, sortConfig]);
+    }, [enrichedPlayers, sortConfig, manualSettings.isSuperflex]);
 
     const fetchData = useCallback(async (currPlatform, currLeagueId, currRosterId) => {
         if (!currLeagueId || !currRosterId) return;

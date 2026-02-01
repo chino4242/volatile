@@ -6,7 +6,6 @@ import { getFleaflickerLeagueData } from '../api/fleaflicker';
 import { getFantasyCalcValues } from '../api/fantasyCalc';
 import { styles } from '../styles';
 import './FleaflickerFreeAgentsPage.css';
-import { getCellClassName } from '../utils/formatting';
 import PlayerTable from '../components/PlayerTable';
 import { usePlayerAnalysis } from '../hooks/usePlayerAnalysis';
 
@@ -52,7 +51,7 @@ function FleaflickerFreeAgentsPage() {
     const [sortConfig, setSortConfig] = useState({ key: 'rank', direction: 'ascending' });
 
     // Use hook to enrich with Python analysis
-    const { enrichedPlayers: fullEnrichedList, loading: analysisLoading, error: analysisError } = usePlayerAnalysis(basePlayers);
+    const { enrichedPlayers: fullEnrichedList, loading: analysisLoading } = usePlayerAnalysis(basePlayers);
 
     const fetchData = useCallback(async (currentLeagueId) => {
         if (!currentLeagueId) {

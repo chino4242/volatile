@@ -1,5 +1,5 @@
 // client/src/components/PlayerTable.jsx
-import React, { useState } from 'react';
+import React from 'react';
 import { styles } from '../styles';
 import { getCellClassName } from '../utils/formatting';
 

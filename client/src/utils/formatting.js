@@ -102,7 +102,7 @@ export function getCellClassName(player, columnName) {
             // To be safe, we should assume the player object has the relevant rank fields.
             // We will check both or prefer one if available.
 
-            let rankVal = player.overall_rank;
+            // let rankVal = player.overall_rank;
             // If the column is explicitly 1QB Rank, we might want that. 
             // However, typically the 'current' rank is what matters.
             // Let's try to be smart: if one_qb_rank is low and overall is high, maybe we are in 1QB mode?

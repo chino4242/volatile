@@ -7,6 +7,7 @@
         "dev": "concurrently \"npm start --prefix client\" \"npm start --prefix server\" \"python python_analysis/api_server.py\"",
         "start": "npm run dev",
         "build": "npm run build --prefix client",
+        "postinstall": "npm install --prefix client",
         "test": "concurrently \"npm run test:server\" \"npm run test:client\" \"npm run test:python\"",
         "test:server": "npm test --prefix server",
         "test:client": "npm test --prefix client -- --watchAll=false",
