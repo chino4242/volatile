@@ -29,6 +29,8 @@ const PORT = process.env.PORT || 5000;
 // MANUAL CORS MIDDLEWARE - REMOVED IN FAVOR OF STANDARD CORS()
 // app.use((req, res, next) => { ... });
 
+app.use(cors()); // Enable CORS with default settings (Allow All)
+
 // Update the request logging middleware
 app.use((req, res, next) => {
     const requestLog = {
@@ -52,7 +54,7 @@ app.use((req, res, next) => {
 });
 
 // Update your CORS options to be more permissive during debugging
-app.use(cors()); // Enable CORS with default settings (Allow All)
+
 app.use(express.json()); // Parse JSON bodies
 
 // --- Root route to handle health checks from Render ---
