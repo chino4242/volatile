@@ -26,8 +26,8 @@
     "dependencies": {
         "@aws-sdk/client-dynamodb": "^3.980.0",
         "@aws-sdk/lib-dynamodb": "^3.980.0",
+        "@vendia/serverless-express": "^4.12.6",
         "aws-amplify": "^6.16.0",
-        "aws-serverless-express": "^3.4.0",
         "axios": "^1.13.4",
         "cors": "^2.8.6",
         "dotenv": "^17.2.3",
