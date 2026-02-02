@@ -26,18 +26,8 @@ const enrichedPlayerRoutes = require('./routes/enrichedPlayerRoutes'); // Import
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// MANUAL CORS MIDDLEWARE - Force headers to avoid issues with aws-serverless-express/cors interaction
-app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-
-    // Intercept OPTIONS method
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
-    }
-    next();
-});
+// MANUAL CORS MIDDLEWARE - REMOVED IN FAVOR OF STANDARD CORS()
+// app.use((req, res, next) => { ... });
 
 // Update the request logging middleware
 app.use((req, res, next) => {
@@ -62,15 +52,7 @@ app.use((req, res, next) => {
 });
 
 // Update your CORS options to be more permissive during debugging
-const corsOptions = {
-    origin: '*', // Warning: Change this back to your specific domains after debugging
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
-    optionsSuccessStatus: 204
-};
-
-app.use(cors(corsOptions)); // Enable CORS
+app.use(cors()); // Enable CORS with default settings (Allow All)
 app.use(express.json()); // Parse JSON bodies
 
 // --- Root route to handle health checks from Render ---
