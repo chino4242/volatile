@@ -6,6 +6,12 @@ export const apiServer = defineFunction({
     runtime: 20, // Node.js 20
     timeoutSeconds: 30,
     memoryMB: 512,
+    bundling: {
+        loader: {
+            '.json': 'copy' // Copy JSON files instead of inlining them
+        },
+        externalModules: [] // Don't externalize any modules
+    },
     environment: {
         // S3 and Lambda names will be injected
     }
