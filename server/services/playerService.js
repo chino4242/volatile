@@ -1,68 +1,39 @@
 // server/services/playerService.js
 
-
-// --- Point to the correct, enriched data file ---
-
-
-
-// This will hold our player data in memory for the lifetime of the server.
-const playerMap = new Map();
-
-/**
- * A self-invoking function to load player data synchronously on server startup.
- * This is a robust pattern for loading essential configuration or data.
- */
-let isLoaded = false;
-
-/**
- * Loads player data synchronously. If it fails, it logs error but does NOT crash the process.
- * This ensures the Lambda can at least start up.
- */
-function loadDataSafe() {
-    if (isLoaded) return;
-
-    console.log("--- PLAYER SERVICE: Loading master player data... ---");
-    try {
-        // Use require to load the JSON data.
-        const playersArray = require('../data/enriched_players_master.json');
-
-        console.log(`--- PLAYER SERVICE: Successfully loaded JSON. Found ${playersArray ? playersArray.length : 0} items.`);
-
-        if (!playersArray || !Array.isArray(playersArray)) {
-            console.error("PLAYER SERVICE ERROR: Data is not a valid JSON array.");
-            return;
-        }
-
-        // Convert the array to a Map for O(1) lookups by sleeper_id
-        for (const player of playersArray) {
-            if (player && player.sleeper_id) {
-                playerMap.set(String(player.sleeper_id), player);
-            }
-        }
-
-        isLoaded = true;
-        console.log(`--- PLAYER SERVICE: Successfully cached ${playerMap.size} players. ---`);
-
-    } catch (error) {
-        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        console.error("!!! ERROR IN PLAYER SERVICE !!!");
-        console.error("!!! Could not load master player data. !!!");
-        console.error(`!!! Error: ${error.message}`);
-        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        // Do NOT exit process. Allow server to run with empty data.
-    }
+// "Bulletproof" Fix: Import the JSON directly at the top level.
+// This forces the bundler (esbuild) to include the data inside the code bundle.
+// No file system paths, no runtime reads.
+let masterPlayerData = [];
+try {
+    masterPlayerData = require('../data/enriched_players_master.json');
+    console.log(`--- PLAYER SERVICE: Bundled JSON loaded. Found ${masterPlayerData.length} items. ---`);
+} catch (e) {
+    console.error("CRITICAL: Failed to load bundled JSON data:", e.message);
+    // Initialize empty to prevent crash, but log critical error
+    masterPlayerData = [];
 }
 
-// Attempt load on module load (but safely)
-// UPDATE: Removed automatic load on startup to prevent Lambda cold-start timeouts.
-// loadDataSafe();
+// Initialize map immediately
+const playerMap = new Map();
+if (Array.isArray(masterPlayerData)) {
+    for (const player of masterPlayerData) {
+        if (player && player.sleeper_id) {
+            playerMap.set(String(player.sleeper_id), player);
+        }
+    }
+}
+console.log(`--- PLAYER SERVICE: Initialized map with ${playerMap.size} players. ---`);
 
 /**
  * Returns the pre-loaded map of all player data.
  * @returns {Map<string, object>} The map of all player data.
  */
 function getAllPlayers() {
-    if (!isLoaded) loadDataSafe(); // Try loading again if it failed or wasn't triggered
+    return playerMap;
+}
+
+// Kept for compatibility, though no longer needed for lazy loading
+function loadDataSafe() {
     return playerMap;
 }
 
