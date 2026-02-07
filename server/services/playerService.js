@@ -12,16 +12,26 @@ const playerMap = new Map();
  * A self-invoking function to load player data synchronously on server startup.
  * This is a robust pattern for loading essential configuration or data.
  */
-(function loadDataOnStartup() {
-    console.log("--- PLAYER SERVICE: Initializing and loading master player data on startup... ---");
+let isLoaded = false;
+
+/**
+ * Loads player data synchronously. If it fails, it logs error but does NOT crash the process.
+ * This ensures the Lambda can at least start up.
+ */
+function loadDataSafe() {
+    if (isLoaded) return;
+
+    console.log("--- PLAYER SERVICE: Loading master player data... ---");
     try {
-        // Use require to load the JSON data. This forces the bundler (esbuild/webpack) to include the file
-        // in the build output, resolving the "File not found" error in Lambda.
-        // The path is relative to THIS file (server/services/playerService.js).
-        // data is in server/data/enriched_players_master.json, so we go up one level (..) then into data.
+        // Use require to load the JSON data.
         const playersArray = require('../data/enriched_players_master.json');
 
-        console.log(`--- PLAYER SERVICE: Successfully loaded JSON. Found ${playersArray.length} items in array.`);
+        console.log(`--- PLAYER SERVICE: Successfully loaded JSON. Found ${playersArray ? playersArray.length : 0} items.`);
+
+        if (!playersArray || !Array.isArray(playersArray)) {
+            console.error("PLAYER SERVICE ERROR: Data is not a valid JSON array.");
+            return;
+        }
 
         // Convert the array to a Map for O(1) lookups by sleeper_id
         for (const player of playersArray) {
@@ -30,28 +40,28 @@ const playerMap = new Map();
             }
         }
 
-        if (playerMap.size === 0) {
-            throw new Error("Data loaded, but no valid players with sleeper_id found to map.");
-        }
-
-        console.log(`--- PLAYER SERVICE: Successfully loaded and cached ${playerMap.size} players. Service is ready.`);
+        isLoaded = true;
+        console.log(`--- PLAYER SERVICE: Successfully cached ${playerMap.size} players. ---`);
 
     } catch (error) {
         console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        console.error("!!! FATAL ERROR IN PLAYER SERVICE !!!");
-        console.error("!!! The server cannot start without the master player data. !!!");
+        console.error("!!! ERROR IN PLAYER SERVICE !!!");
+        console.error("!!! Could not load master player data. !!!");
         console.error(`!!! Error: ${error.message}`);
         console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        // Exit the process with an error code to prevent the server from running in a broken state.
-        process.exit(1);
+        // Do NOT exit process. Allow server to run with empty data.
     }
-})();
+}
+
+// Attempt load on module load (but safely)
+loadDataSafe();
 
 /**
  * Returns the pre-loaded map of all player data.
  * @returns {Map<string, object>} The map of all player data.
  */
 function getAllPlayers() {
+    if (!isLoaded) loadDataSafe(); // Try loading again if it failed or wasn't triggered
     return playerMap;
 }
 
