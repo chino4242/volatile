@@ -28,10 +28,12 @@ async function getFantasyCalcValues(isDynasty = true, numQbs = 2, ppr = 1, numTe
     // The API URL is now dynamic based on the ppr parameter.
     const url = `https://api.fantasycalc.com/values/current?isDynasty=${isDynasty}&numQbs=${numQbs}&ppr=${ppr}&numTeams=${numTeams}`;
     console.log(`Fetching player values from FantasyCalc: ${url}`);
-    require('fs').appendFileSync('fantasycalc_url_log.txt', new Date().toISOString() + " " + url + "\n");
+    // require('fs').appendFileSync('fantasycalc_url_log.txt', new Date().toISOString() + " " + url + "\n");
 
     try {
-        const response = await axios.get(url);
+        const response = await axios.get(url, {
+            headers: { 'User-Agent': 'Volatile/1.0 (FantasyFootballAnalysis)' }
+        });
         const players = response.data;
 
         if (!Array.isArray(players)) {

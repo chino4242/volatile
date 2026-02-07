@@ -54,7 +54,8 @@ function loadDataSafe() {
 }
 
 // Attempt load on module load (but safely)
-loadDataSafe();
+// UPDATE: Removed automatic load on startup to prevent Lambda cold-start timeouts.
+// loadDataSafe();
 
 /**
  * Returns the pre-loaded map of all player data.

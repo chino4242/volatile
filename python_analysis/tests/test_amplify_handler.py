@@ -6,7 +6,11 @@ import sys
 import os
 
 # Add python_analysis directory to path
-sys.path.append(os.path.join(os.getcwd(), 'python_analysis'))
+# Add parent directory to path so we can import modules from the project root
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Mock boto3 before importing the handler
+sys.modules['boto3'] = MagicMock()
 
 import amplify_processing_handler
 

@@ -15,11 +15,16 @@ router.get('/league/:leagueId/roster/:rosterId', async (req, res) => {
         console.error("Route cannot execute: Critical service functions are not loaded.");
         return res.status(500).json({ error: "Server configuration error: Core services not available." });
     }
-    
+
     try {
         console.log(`Fetching details for League ID: ${leagueId}, Roster ID: ${rosterId}`);
+        // Add User-Agent to avoid blocking
+        const axiosConfig = {
+            headers: { 'User-Agent': 'Volatile/1.0 (FantasyFootballAnalysis)' }
+        };
+
         const [rosterData, allPlayersData] = await Promise.all([
-            axios.get(`https://api.sleeper.app/v1/league/${leagueId}/rosters`).then(r => r.data),
+            axios.get(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, axiosConfig).then(r => r.data),
             loadAllPlayersData()
         ]);
 
@@ -38,7 +43,7 @@ router.get('/league/:leagueId/roster/:rosterId', async (req, res) => {
 
         if (ownerUserId) {
             try {
-                const userResponse = await axios.get(userUrlTemplate.replace("{user_id}", ownerUserId));
+                const userResponse = await axios.get(userUrlTemplate.replace("{user_id}", ownerUserId), axiosConfig);
                 if (userResponse.data && userResponse.data.display_name) {
                     managerDisplayName = userResponse.data.display_name;
                 }

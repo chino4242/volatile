@@ -26,10 +26,17 @@ router.get('/league/:leagueId/managers', async (req, res) => {
 
         console.log(`Fetching Sleeper users and rosters for league ${leagueId}`);
 
+        // Set a custom User-Agent to avoid being blocked by Sleeper API
+        const axiosConfig = {
+            headers: {
+                'User-Agent': 'Volatile/1.0 (FantasyFootballAnalysis)'
+            }
+        };
+
         // Fetch both users and rosters concurrently for speed
         const [usersResponse, rostersResponse] = await Promise.all([
-            axios.get(usersUrl),
-            axios.get(rostersUrl)
+            axios.get(usersUrl, axiosConfig),
+            axios.get(rostersUrl, axiosConfig)
         ]);
 
         const users = usersResponse.data;
@@ -63,6 +70,12 @@ router.get('/league/:leagueId/managers', async (req, res) => {
 
     } catch (error) {
         console.error(`Error fetching Sleeper managers for league ${leagueId}:`, error.message);
+        if (error.response) {
+            console.error('Sleeper API Error Data:', error.response.data);
+            console.error('Sleeper API Status:', error.response.status);
+            // Return the specific error from Sleeper if available
+            return res.status(error.response.status).json({ error: "Sleeper API Error", details: error.response.data });
+        }
         res.status(500).json({ error: "An internal server error occurred while fetching league managers." });
     }
 });

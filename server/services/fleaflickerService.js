@@ -21,7 +21,10 @@ async function getFleaflickerLeagueRosters(leagueId) {
     const url = 'https://www.fleaflicker.com/api/FetchLeagueRosters';
     console.log(`Fetching Fleaflicker rosters for league ${leagueId}...`);
     try {
-        const response = await axios.get(url, { params: { sport: "NFL", league_id: leagueId } });
+        const response = await axios.get(url, {
+            params: { sport: "NFL", league_id: leagueId },
+            headers: { 'User-Agent': 'Volatile/1.0 (FantasyFootballAnalysis)' }
+        });
         const jResponse = response.data;
 
         if (!jResponse || !jResponse.rosters) {
@@ -61,7 +64,10 @@ async function getFleaflickerLeagueRules(leagueId) {
     const url = 'https://www.fleaflicker.com/api/FetchLeagueRules';
     console.log(`Fetching Fleaflicker rules for league ${leagueId}...`);
     try {
-        const response = await axios.get(url, { params: { sport: "NFL", league_id: leagueId } });
+        const response = await axios.get(url, {
+            params: { sport: "NFL", league_id: leagueId },
+            headers: { 'User-Agent': 'Volatile/1.0 (FantasyFootballAnalysis)' }
+        });
         // Response structure: { rosterPositions: [...] }
         return response.data;
     } catch (error) {
