@@ -1,10 +1,9 @@
 // server/services/playerService.js
-const fs = require('fs');
-const path = require('path');
+
 
 // --- Point to the correct, enriched data file ---
-const PLAYER_DATA_FILE = "enriched_players_master.json";
-const PLAYER_DATA_PATH = path.join(__dirname, '..', 'data', PLAYER_DATA_FILE);
+
+
 
 // This will hold our player data in memory for the lifetime of the server.
 const playerMap = new Map();
@@ -16,23 +15,13 @@ const playerMap = new Map();
 (function loadDataOnStartup() {
     console.log("--- PLAYER SERVICE: Initializing and loading master player data on startup... ---");
     try {
-        if (!fs.existsSync(PLAYER_DATA_PATH)) {
-            throw new Error(`File not found at path: ${PLAYER_DATA_PATH}`);
-        }
+        // Use require to load the JSON data. This forces the bundler (esbuild/webpack) to include the file
+        // in the build output, resolving the "File not found" error in Lambda.
+        // The path is relative to THIS file (server/services/playerService.js).
+        // data is in server/data/enriched_players_master.json, so we go up one level (..) then into data.
+        const playersArray = require('../data/enriched_players_master.json');
 
-        const fileContent = fs.readFileSync(PLAYER_DATA_PATH, 'utf8');
-        console.log(`--- PLAYER SERVICE: Read file content, length: ${fileContent.length} characters.`);
-
-        if (fileContent.trim() === '') {
-            throw new Error("File is empty.");
-        }
-
-        const playersArray = JSON.parse(fileContent);
-
-        if (!Array.isArray(playersArray)) {
-            throw new Error("Data is not a valid JSON array.");
-        }
-        console.log(`--- PLAYER SERVICE: Successfully parsed JSON. Found ${playersArray.length} items in array.`);
+        console.log(`--- PLAYER SERVICE: Successfully loaded JSON. Found ${playersArray.length} items in array.`);
 
         // Convert the array to a Map for O(1) lookups by sleeper_id
         for (const player of playersArray) {
@@ -42,7 +31,7 @@ const playerMap = new Map();
         }
 
         if (playerMap.size === 0) {
-             throw new Error("Data loaded, but no valid players with sleeper_id found to map.");
+            throw new Error("Data loaded, but no valid players with sleeper_id found to map.");
         }
 
         console.log(`--- PLAYER SERVICE: Successfully loaded and cached ${playerMap.size} players. Service is ready.`);
