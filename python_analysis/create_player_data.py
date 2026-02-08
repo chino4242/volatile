@@ -166,7 +166,7 @@ def main():
 
     ai_analysis_lookup = load_consolidated_analysis(CONSOLIDATED_ANALYSIS_PATH)
 
-    sf_rename_map = {'Overall': 'overall_rank', 'Positional Rank': 'positional_rank', 'Tier': 'tier'}
+    sf_rename_map = {'Dynasty_Overall': 'overall_rank', 'Overall': 'overall_rank', 'Dynasty_Positional_Rank': 'positional_rank', 'Positional Rank': 'positional_rank', 'Dynasty_Tier': 'tier', 'Tier': 'tier'}
     lrqb_rename_map = {'ZAP Score': 'zap_score', 'Category': 'category', 'Comparables': 'comparables', 'Draft Capital Delta': 'draft_capital_delta', 'Notes': 'notes_lrqb'}
     rsp_rename_map = {
         'RSP Pos. Ranking': 'rsp_pos_rank', 'RSP 2023-2025 Rank': 'rsp_2023_2025_rank', 'RP 2021-2025 Rank': 'rp_2021_2025_rank',
