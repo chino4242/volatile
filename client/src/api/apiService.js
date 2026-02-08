@@ -90,5 +90,30 @@ export async function postToPythonApi(endpoint, body) {
   }
 }
 
-// You could also add a generic post function for your Node.js API if needed.
-// export async function postToNodeApi(endpoint, body, options = {}) { ... }
+/**
+ * A generic function for making POST requests to your NODE.JS backend.
+ * @param {string} endpoint - The API endpoint path (e.g., '/api/enriched-players/batch').
+ * @param {object} body - The request body to be sent as JSON.
+ * @param {object} [options={}] - Optional additional fetch options.
+ * @returns {Promise<any>} - The data from the API.
+ */
+export async function post(endpoint, body, options = {}) {
+  try {
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${REACT_APP_API_URL}${normalizedEndpoint}`;
+    console.log('Making POST request to:', url);
+    const response = await fetch(url, {
+      method: 'POST',
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      body: JSON.stringify(body),
+    });
+    return handleResponse(response);
+  } catch (error) {
+    console.error(`POST request failed:`, error);
+    throw error;
+  }
+}
