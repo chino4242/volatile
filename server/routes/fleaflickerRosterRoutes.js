@@ -12,7 +12,7 @@ router.get('/league/:leagueId/data', async (req, res) => {
         const allRosters = await getFleaflickerLeagueRosters(leagueId);
 
         // 2. Get the full master player list from our service
-        const allPlayersMap = getAllPlayers();
+        const allPlayersMap = await getAllPlayers();
         // Convert the Map to an array for JSON serialization
         const masterPlayerList = Array.from(allPlayersMap.values());
 

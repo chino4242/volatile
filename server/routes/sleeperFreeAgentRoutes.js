@@ -30,7 +30,7 @@ router.get('/league/:leagueId/free-agents', async (req, res) => {
         console.log(`Found ${rosteredPlayerIds.size} players on rosters.`);
 
         // 3. Load the master list of all NFL players from our pre-loaded service
-        const allPlayersMap = getAllPlayers();
+        const allPlayersMap = await getAllPlayers();
 
         // 4. Filter the master list to find the free agents.
         const freeAgents = [];
@@ -43,7 +43,7 @@ router.get('/league/:leagueId/free-agents', async (req, res) => {
             }
         }
         console.log(`Found ${freeAgents.length} free agents`);
-        
+
         // 5. Send the list of free agents as the response.
         res.json(freeAgents);
     } catch (error) {

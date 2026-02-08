@@ -1,40 +1,78 @@
 // server/services/playerService.js
 
-// "Bulletproof" Fix: Import the JSON directly at the top level.
-// This forces the bundler (esbuild) to include the data inside the code bundle.
-// No file system paths, no runtime reads.
-let masterPlayerData = [];
-try {
-    masterPlayerData = require('../data/enriched_players_master.json');
-    console.log(`--- PLAYER SERVICE: Bundled JSON loaded. Found ${masterPlayerData.length} items. ---`);
-} catch (e) {
-    console.error("CRITICAL: Failed to load bundled JSON data:", e.message);
-    // Initialize empty to prevent crash, but log critical error
-    masterPlayerData = [];
-}
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 
-// Initialize map immediately
-const playerMap = new Map();
-if (Array.isArray(masterPlayerData)) {
-    for (const player of masterPlayerData) {
-        if (player && player.sleeper_id) {
-            playerMap.set(String(player.sleeper_id), player);
-        }
-    }
-}
-console.log(`--- PLAYER SERVICE: Initialized map with ${playerMap.size} players. ---`);
+// S3 Configuration
+const BUCKET_NAME = process.env.DATA_BUCKET_NAME || 'amplify-dszsd313h38f-main-provinggrounddatabucket4-qkwdydh8trfc';
+const JSON_KEY = 'player-data/enriched_players_master.json';
+
+// Initialize S3 client
+const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-2' });
+
+// In-memory cache
+let playerMap = new Map();
+let isLoaded = false;
 
 /**
- * Returns the pre-loaded map of all player data.
- * @returns {Map<string, object>} The map of all player data.
+ * Load player data from S3
  */
-function getAllPlayers() {
-    return playerMap;
+async function loadPlayerDataFromS3() {
+    if (isLoaded) {
+        console.log('--- PLAYER SERVICE: Data already loaded, using cache ---');
+        return playerMap;
+    }
+
+    console.log('--- PLAYER SERVICE: Loading player data from S3... ---');
+    try {
+        const command = new GetObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: JSON_KEY
+        });
+
+        const response = await s3Client.send(command);
+        const bodyContents = await streamToString(response.Body);
+        const playersArray = JSON.parse(bodyContents);
+
+        console.log(`--- PLAYER SERVICE: Loaded ${playersArray.length} players from S3 ---`);
+
+        // Populate the map
+        for (const player of playersArray) {
+            if (player && player.sleeper_id) {
+                playerMap.set(String(player.sleeper_id), player);
+            }
+        }
+
+        isLoaded = true;
+        console.log(`--- PLAYER SERVICE: Cached ${playerMap.size} players in memory ---`);
+
+        return playerMap;
+    } catch (error) {
+        console.error('!!! ERROR loading player data from S3 !!!');
+        console.error('Error:', error.message);
+        console.error('Bucket:', BUCKET_NAME);
+        console.error('Key:', JSON_KEY);
+        throw error;
+    }
 }
 
-// Kept for compatibility, though no longer needed for lazy loading
-function loadDataSafe() {
-    return playerMap;
+/**
+ * Helper function to convert stream to string
+ */
+async function streamToString(stream) {
+    return new Promise((resolve, reject) => {
+        const chunks = [];
+        stream.on('data', (chunk) => chunks.push(chunk));
+        stream.on('error', reject);
+        stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+    });
+}
+
+/**
+ * Returns the player map, loading from S3 if needed
+ * @returns {Promise<Map<string, object>>} The map of all player data.
+ */
+async function getAllPlayers() {
+    return await loadPlayerDataFromS3();
 }
 
 /**
@@ -47,7 +85,7 @@ function createManagerRosterList(managerPlayerIds, allPlayersMap) {
     const rosterDetailsList = [];
     if (!(allPlayersMap instanceof Map)) {
         console.error("Error: allPlayersMap is not a valid Map in createManagerRosterList");
-        return []; // Return empty array on error
+        return [];
     }
     if (!managerPlayerIds || managerPlayerIds.length === 0) {
         return [];
@@ -74,8 +112,6 @@ function createManagerRosterList(managerPlayerIds, allPlayersMap) {
                     position: 'DEF',
                     team: playerIdStr
                 });
-            } else {
-                // To keep the logs clean, we won't log every unknown player unless needed for deep debugging.
             }
         }
     }
@@ -87,6 +123,5 @@ function createManagerRosterList(managerPlayerIds, allPlayersMap) {
 module.exports = {
     getAllPlayers,
     createManagerRosterList,
-    // Add an alias for backward compatibility with other services that might still use the old function name.
-    loadAllPlayersData: getAllPlayers,
+    loadAllPlayersData: getAllPlayers, // Alias for backward compatibility
 };
