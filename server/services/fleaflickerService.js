@@ -1,16 +1,6 @@
 // server/services/fleaflickerService.js
 const axios = require('axios');
-
-/**
- * A helper to cleanse player names for easier matching.
- * @param {string} name The player's name.
- * @returns {string} The cleansed name.
- */
-function cleanseNameJs(name) {
-    if (typeof name !== 'string') return '';
-    // Removes non-alphanumeric characters except spaces and apostrophes, then trims whitespace and converts to lower case.
-    return name.replace(/[^\w\s']+/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
-}
+const { cleanseName } = require('../utils/nameUtils');
 
 /**
  * Fetches and transforms Fleaflicker league rosters into a standardized format.
@@ -78,7 +68,7 @@ async function getFleaflickerLeagueRules(leagueId) {
 
 
 // This allows the file to be used by other parts of your app (like your routes)
-module.exports = { getFleaflickerLeagueRosters, cleanseNameJs, getFleaflickerLeagueRules };
+module.exports = { getFleaflickerLeagueRosters, cleanseName, getFleaflickerLeagueRules };
 
 
 // --- NEW: Test block to make the script runnable from the command line ---

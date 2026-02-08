@@ -1,21 +1,6 @@
 // server/services/fantasyCalcService.js
 const axios = require('axios');
-
-/**
- * A helper to cleanse player names for easier matching.
- * @param {string} name The player's name.
- * @returns {string} The cleansed name.
- */
-function cleanseNameJs(name) {
-    if (typeof name !== 'string') return '';
-    // Removes suffixes, non-alphanumeric characters, then trims/lowercases.
-    return name
-        .replace(/\b(jr|sr|ii|iii|iv|v)\b/gi, '') // Remove suffixes
-        .replace(/[^\w\s']+/g, '') // Remove punctuation
-        .replace(/\s+/g, ' ') // Normalize spaces
-        .trim()
-        .toLowerCase();
-}
+const { cleanseName } = require('../utils/nameUtils');
 
 /**
  * Fetches player values from FantasyCalc and returns them as a map for easy lookup.
@@ -46,7 +31,7 @@ async function getFantasyCalcValues(isDynasty = true, numQbs = 2, ppr = 1, numTe
             const playerName = playerData?.player?.name;
             const sleeperId = playerData?.player?.sleeperId; // Get the Sleeper ID
             if (playerName) {
-                const cleansedName = cleanseNameJs(playerName);
+                const cleansedName = cleanseName(playerName);
                 // The value object now includes the sleeperId
                 playerValueMap.set(cleansedName, {
                     value: playerData.value,
@@ -71,4 +56,4 @@ async function getFantasyCalcValues(isDynasty = true, numQbs = 2, ppr = 1, numTe
     }
 }
 
-module.exports = { getFantasyCalcValues, cleanseNameJs };
+module.exports = { getFantasyCalcValues, cleanseName };

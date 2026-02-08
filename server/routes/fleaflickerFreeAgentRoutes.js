@@ -1,22 +1,8 @@
 // server/routes/fleaflickerRosterRoutes.js
 const express = require('express');
 const axios = require('axios');
+const { cleanseName } = require('../utils/nameUtils');
 const router = express.Router();
-
-
-// A more robust helper to cleanse names for consistent matching.
-function cleanseName(name) {
-    if (typeof name !== 'string') return '';
-    return name
-        .toLowerCase()
-        .replace(/\s+(jr|sr|ii|iii|iv|v)\.?$/g, '') // Remove suffixes
-        .replace(/[.'"]/g, '') // Remove periods, apostrophes, and quotes
-        .replace(/\s+/g, ' ') // Collapse whitespace
-        .trim();
-}
-
-
-
 
 
 // Helper to load your master analysis data

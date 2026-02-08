@@ -4,9 +4,9 @@ import os
 import pandas as pd
 import requests
 import io
-import re
 import math
 from decimal import Decimal
+from name_utils import cleanse_name
 
 # Initialize AWS clients
 s3 = boto3.client('s3')
@@ -16,23 +16,6 @@ dynamodb = boto3.resource('dynamodb')
 TABLE_NAME = os.environ.get('PLAYER_VALUES_TABLE', 'PlayerValues')
 table = dynamodb.Table(TABLE_NAME)
 BUCKET_NAME = os.environ.get('DATA_BUCKET_NAME')
-
-def cleanse_name(name):
-    """
-    Standardizes player names for fuzzy matching.
-    Removes suffixes like 'III', 'Jr', etc., and special characters.
-    """
-    if not isinstance(name, str):
-        return ""
-    cleaned_name = name.lower()
-    suffixes_to_remove = [' iii', ' iv', ' ii', ' jr', ' sr', ' v']
-    for suffix in suffixes_to_remove:
-        if cleaned_name.endswith(suffix):
-            cleaned_name = cleaned_name[:-len(suffix)].strip()
-            break
-    cleaned_name = re.sub(r"[^\w\s']", '', cleaned_name)
-    cleaned_name = re.sub(r'\s+', ' ', cleaned_name).strip()
-    return cleaned_name
 
 def cleanse_df_names(df, name_column):
     """

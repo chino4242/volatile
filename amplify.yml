@@ -4,8 +4,10 @@ frontend:
     preBuild:
       commands:
         - npm ci
+        - npx ampx generate outputs --branch $AWS_BRANCH --app-id $AWS_APP_ID
     build:
       commands:
+        - export REACT_APP_API_URL=$(node -e "console.log(require('./amplify_outputs.json').custom.API_URL)")
         - echo "REACT_APP_API_URL=$REACT_APP_API_URL" >> client/.env
         - npm run build
   artifacts:

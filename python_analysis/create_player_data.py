@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import numpy as np
 import requests
-import re
+from name_utils import cleanse_name
 
 # --- Configuration ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -15,19 +15,6 @@ CONSOLIDATED_ANALYSIS_PATH = os.path.join(CURRENT_DIR, 'analysis_results', 'cons
 
 if not os.path.exists(SERVER_DATA_DIR):
     os.makedirs(SERVER_DATA_DIR)
-
-def cleanse_name(name):
-    if not isinstance(name, str):
-        return ""
-    cleaned_name = name.lower()
-    suffixes_to_remove = [' iii', ' iv', ' ii', ' jr', ' sr', ' v']
-    for suffix in suffixes_to_remove:
-        if cleaned_name.endswith(suffix):
-            cleaned_name = cleaned_name[:-len(suffix)].strip()
-            break
-    cleaned_name = re.sub(r"[^\w\s']", '', cleaned_name)
-    cleaned_name = re.sub(r'\s+', ' ', cleaned_name).strip()
-    return cleaned_name
 
 def cleanse_df_names(df, name_column):
     if name_column in df.columns:

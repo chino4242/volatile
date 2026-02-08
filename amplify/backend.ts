@@ -82,3 +82,21 @@ backend.apiServer.resources.lambda.addToRolePolicy(
 backend.apiServer.addEnvironment('DATA_BUCKET_NAME', backend.storage.resources.bucket.bucketName);
 backend.apiServer.addEnvironment('PROCESSOR_FUNCTION_NAME', pythonProcessor.functionName);
 backend.apiServer.addEnvironment('PLAYER_VALUES_TABLE_NAME', backend.data.resources.tables['PlayerValue'].tableName);
+
+// Add Function URL for API access
+const cfnFunction = backend.apiServer.resources.lambda.node.defaultChild as lambda.CfnFunction;
+const functionUrl = backend.apiServer.resources.lambda.addFunctionUrl({
+  authType: lambda.FunctionUrlAuthType.NONE,
+  cors: {
+    allowedOrigins: ['*'],
+    allowedMethods: [lambda.HttpMethod.ALL],
+    allowedHeaders: ['*'],
+  },
+});
+
+// Add outputs for the frontend
+backend.addOutput({
+  custom: {
+    API_URL: functionUrl.url,
+  },
+});

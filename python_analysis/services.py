@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
 import os
-import re
+from name_utils import cleanse_name
 
 
 nnf_team_ids = {
@@ -25,29 +25,13 @@ columns = ['full_name', 'Team', 'position', 'Age', 'Value']
 
 def cleanse_names(df, column):
     """
-    Cleanses player names in a DataFrame column to match the frontend JavaScript logic.
-    - Converts to lowercase.
-    - Removes all characters except letters, numbers, whitespace, and apostrophes.
-    - Normalizes multiple whitespace characters into a single space.
-    - Trims leading/trailing whitespace.
+    Cleanses player names in a DataFrame column using the shared cleanse_name utility.
+    Applies the standardized name cleansing logic to all names in the specified column.
     """
     # Ensure the column is treated as a string, filling any non-string data with empty strings
     cleansed_series = df[column].astype(str).fillna('')
-    
-    # 1. Convert to lowercase
-    cleansed_series = cleansed_series.str.lower()
-    
-    # 2. Remove special characters (keeping apostrophes)
-    # The regex [^\w\s'] matches any character that is NOT a word character, 
-    # whitespace, or an apostrophe. We replace it with nothing.
-    cleansed_series = cleansed_series.str.replace(r'[^\w\s\']', '', regex=True)
-    
-    # 3. Normalize multiple whitespace characters into a single space
-    cleansed_series = cleansed_series.str.replace(r'\s+', ' ', regex=True)
-    
-    # 4. Trim leading/trailing whitespace from the result
-    cleansed_series = cleansed_series.str.strip()
-    
+    # Apply the shared cleanse_name function to each name
+    return cleansed_series.apply(cleanse_name)
     df['player_cleansed_name'] = cleansed_series
     return df
 

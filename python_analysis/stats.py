@@ -2,6 +2,7 @@ import nfl_data_py as nfl
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import List, Union
+from name_utils import cleanse_name as cleanse_name_util
 
 # --- Constants ---
 # Using ALL_CAPS for constants is a standard Python convention.
@@ -30,9 +31,9 @@ POSITIONS = {
 
 def cleanse_name(series: pd.Series) -> pd.Series:
     """
-    Removes special characters and whitespace from a pandas Series of names.
+    Cleanses player names in a pandas Series using the shared cleanse_name utility.
     """
-    return series.str.replace(r"[^\w\s]+", "", regex=True).str.strip()
+    return series.apply(cleanse_name_util)
 
 
 # --- Data Creation Functions ---

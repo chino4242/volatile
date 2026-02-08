@@ -1,0 +1,7 @@
+{
+  "name": "api-server",
+  "type": "module",
+  "dependencies": {
+    "@vendia/serverless-express": "^4.12.6"
+  }
+}
