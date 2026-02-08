@@ -12,6 +12,7 @@ const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-2' })
 // In-memory cache
 let playerMap = new Map();
 let isLoaded = false;
+let cacheTimestamp = Date.now();
 
 /**
  * Load player data from S3
