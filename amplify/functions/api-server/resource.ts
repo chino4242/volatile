@@ -8,7 +8,7 @@ export const apiServer = defineFunction({
     memoryMB: 512,
     bundling: {
         loader: {
-            '.json': 'copy' // Copy JSON files instead of inlining them
+            '.json': 'json' // Inline JSON content into the bundle
         },
         externalModules: [] // Don't externalize any modules
     },
