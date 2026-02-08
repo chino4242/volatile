@@ -1,0 +1,39 @@
+name: Deploy Amplify Backend
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write   # Required for AWS OIDC
+      contents: read    # Required to checkout code
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-2
+      
+      - name: Deploy Amplify backend to main branch
+        run: npx ampx pipeline-deploy --branch main --app-id dszsd313h38f
+        env:
+          CI: true
