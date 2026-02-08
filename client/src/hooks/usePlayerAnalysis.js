@@ -1,9 +1,9 @@
 // client/src/hooks/usePlayerAnalysis.js
 import { useState, useEffect } from 'react';
-import { postToPythonApi } from '../api/apiService';
+import { post } from '../api/apiService';
 
 /**
- * Custom hook to enrich a list of players with AI analysis and advanced stats from the Python API.
+ * Custom hook to enrich a list of players with analysis data from DynamoDB.
  * 
  * @param {Array} players - Array of player objects. Must have 'sleeper_id' or 'player_id'.
  * @returns {Object} { enrichedPlayers, loading, error }
@@ -33,8 +33,8 @@ export function usePlayerAnalysis(players) {
                     return;
                 }
 
-                // Use the centralized API helper
-                const analysisData = await postToPythonApi('/api/enriched-players/batch', {
+                // Use the Node.js API to query DynamoDB
+                const analysisData = await post('/api/enriched-players/batch', {
                     sleeper_ids: playerIds
                 });
 
