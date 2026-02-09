@@ -25,6 +25,12 @@ async function loadPlayerDataFromDynamoDB() {
     }
 
     console.log('--- PLAYER SERVICE: Loading player data from DynamoDB... ---');
+    console.log('--- PLAYER SERVICE: Environment check:', {
+        TABLE_NAME,
+        env_var: process.env.PLAYER_VALUES_TABLE_NAME,
+        region: process.env.AWS_REGION
+    });
+
     try {
         const params = {
             TableName: TABLE_NAME
@@ -63,8 +69,11 @@ async function loadPlayerDataFromDynamoDB() {
         return playerMap;
     } catch (error) {
         console.error('!!! ERROR loading player data from DynamoDB !!!');
-        console.error('Error:', error.message);
-        console.error('Table:', TABLE_NAME);
+        console.error('Error Message:', error.message);
+        console.error('Error Code:', error.code || 'N/A');
+        console.error('Error Name:', error.name || 'N/A');
+        console.error('Table Name:', TABLE_NAME);
+        console.error('Full Error:', JSON.stringify(error, null, 2));
         throw error;
     }
 }
