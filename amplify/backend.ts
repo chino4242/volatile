@@ -71,6 +71,8 @@ backend.apiServer.resources.lambda.addToRolePolicy(
   })
 );
 
+// Add DynamoDB permissions to the API server Lambda for PlayerValue table access
+// Updated: 2026-02-09 to ensure permissions are applied in production
 backend.apiServer.resources.lambda.addToRolePolicy(
   new PolicyStatement({
     actions: ['dynamodb:GetItem', 'dynamodb:BatchGetItem', 'dynamodb:Scan', 'dynamodb:Query'],
