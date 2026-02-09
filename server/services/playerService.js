@@ -1,13 +1,14 @@
 // server/services/playerService.js
 
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBDocumentClient, ScanCommand } = require("@aws-sdk/lib-dynamodb");
 
-// S3 Configuration
-const BUCKET_NAME = process.env.DATA_BUCKET_NAME || 'amplify-dszsd313h38f-main-provinggrounddatabucket4-qkwdydh8trfc';
-const JSON_KEY = 'player-data/enriched_players_master.json';
+// DynamoDB Configuration
+const TABLE_NAME = process.env.PLAYER_VALUES_TABLE_NAME || 'PlayerValues';
 
-// Initialize S3 client
-const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-2' });
+// Initialize DynamoDB client
+const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-2' });
+const docClient = DynamoDBDocumentClient.from(client);
 
 // In-memory cache
 let playerMap = new Map();
@@ -15,29 +16,42 @@ let isLoaded = false;
 let cacheTimestamp = Date.now();
 
 /**
- * Load player data from S3
+ * Load player data from DynamoDB
  */
-async function loadPlayerDataFromS3() {
+async function loadPlayerDataFromDynamoDB() {
     if (isLoaded) {
         console.log('--- PLAYER SERVICE: Data already loaded, using cache ---');
         return playerMap;
     }
 
-    console.log('--- PLAYER SERVICE: Loading player data from S3... ---');
+    console.log('--- PLAYER SERVICE: Loading player data from DynamoDB... ---');
     try {
-        const command = new GetObjectCommand({
-            Bucket: BUCKET_NAME,
-            Key: JSON_KEY
-        });
+        const params = {
+            TableName: TABLE_NAME
+        };
 
-        const response = await s3Client.send(command);
-        const bodyContents = await streamToString(response.Body);
-        const playersArray = JSON.parse(bodyContents);
+        // Initial Scan
+        const command = new ScanCommand(params);
+        let response = await docClient.send(command);
+        let items = response.Items || [];
 
-        console.log(`--- PLAYER SERVICE: Loaded ${playersArray.length} players from S3 ---`);
+        // Handle Pagination (Scan limit is 1MB)
+        while (response.LastEvaluatedKey) {
+            console.log('--- PLAYER SERVICE: Scanning next page... ---');
+            const nextParams = {
+                TableName: TABLE_NAME,
+                ExclusiveStartKey: response.LastEvaluatedKey
+            };
+            response = await docClient.send(new ScanCommand(nextParams));
+            if (response.Items) {
+                items = items.concat(response.Items);
+            }
+        }
+
+        console.log(`--- PLAYER SERVICE: Loaded ${items.length} players from DynamoDB ---`);
 
         // Populate the map
-        for (const player of playersArray) {
+        for (const player of items) {
             if (player && player.sleeper_id) {
                 playerMap.set(String(player.sleeper_id), player);
             }
@@ -48,32 +62,19 @@ async function loadPlayerDataFromS3() {
 
         return playerMap;
     } catch (error) {
-        console.error('!!! ERROR loading player data from S3 !!!');
+        console.error('!!! ERROR loading player data from DynamoDB !!!');
         console.error('Error:', error.message);
-        console.error('Bucket:', BUCKET_NAME);
-        console.error('Key:', JSON_KEY);
+        console.error('Table:', TABLE_NAME);
         throw error;
     }
 }
 
 /**
- * Helper function to convert stream to string
- */
-async function streamToString(stream) {
-    return new Promise((resolve, reject) => {
-        const chunks = [];
-        stream.on('data', (chunk) => chunks.push(chunk));
-        stream.on('error', reject);
-        stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-    });
-}
-
-/**
- * Returns the player map, loading from S3 if needed
+ * Returns the player map, loading from DynamoDB if needed
  * @returns {Promise<Map<string, object>>} The map of all player data.
  */
 async function getAllPlayers() {
-    return await loadPlayerDataFromS3();
+    return await loadPlayerDataFromDynamoDB();
 }
 
 /**
