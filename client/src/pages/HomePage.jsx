@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { get } from '../api/apiService';
-import { getFantasyCalcValues } from '../api/fantasyCalc';
+import { get, post } from '../api/apiService';
 import './RosterDisplay.css'; // Import shared CSS for table styling
 
 function HomePage() {
@@ -61,62 +60,76 @@ function HomePage() {
         throw new Error('Invalid response format from server');
       }
 
-      // Fetch FantasyCalc values (detect league settings if possible, otherwise use defaults)
-      const calcValuesResponse = await getFantasyCalcValues({
-        isDynasty: true,
-        numQbs: 2, // Assume Superflex for Sleeper
-        ppr: 1,
-        numTeams: 12
-      });
-
-      // Create a name cleansing helper
-      const cleanseName = (name) => {
-        if (!name) return '';
-        return name.toLowerCase().replace(/[^\w\s']+/g, '').replace(/\s+/g, ' ').trim();
-      };
-
-      // Build FantasyCalc value map
-      const fantasyCalcMap = new Map();
-      if (calcValuesResponse && typeof calcValuesResponse === 'object') {
-        Object.entries(calcValuesResponse).forEach(([cleansedNameKey, playerData]) => {
-          if (playerData && typeof playerData.value !== 'undefined') {
-            fantasyCalcMap.set(cleansedNameKey, playerData.value);
-          }
-        });
-      }
-
-      // Fetch roster data for each manager and calculate values
-      const managersWithValues = await Promise.all(
+      // Fetch roster data for each manager first
+      const managersWithRosters = await Promise.all(
         managersData.map(async (manager) => {
           try {
             const rosterData = await get(`/api/sleeper/league/${currentLeagueId}/roster/${manager.roster_id}`);
-
-            // Enrich players with FantasyCalc values
-            const enrichedPlayers = (rosterData.players || []).map(player => {
-              const tradeValue = fantasyCalcMap.get(cleanseName(player.full_name)) || 0;
-              return {
-                ...player,
-                fantasy_calc_value: tradeValue
-              };
-            });
-
-            // Calculate position values
-            const values = calculatePositionValues(enrichedPlayers);
-
             return {
               ...manager,
-              players: enrichedPlayers,
-              values
+              players: rosterData.players || []
             };
           } catch (err) {
             console.error(`Failed to fetch roster ${manager.roster_id}:`, err);
             return {
               ...manager,
-              values: { overall: 0, QB: 0, WR: 0, TE: 0, RB: 0 }
+              players: []
             };
           }
         })
       );
+
+      // Collect all unique player IDs from all rosters
+      const allPlayerIds = new Set();
+      managersWithRosters.forEach(manager => {
+        manager.players.forEach(player => {
+          if (player.player_id) {
+            allPlayerIds.add(player.player_id);
+          }
+        });
+      });
+
+      // Fetch player values from DynamoDB using sleeper_id
+      let playerValuesMap = new Map();
+      if (allPlayerIds.size > 0) {
+        try {
+          const valuesData = await post('/api/enriched-players/batch', {
+            sleeper_ids: Array.from(allPlayerIds)
+          });
+
+          // Build a map indexed by sleeper_id
+          if (Array.isArray(valuesData)) {
+            valuesData.forEach(playerData => {
+              if (playerData && playerData.sleeper_id) {
+                playerValuesMap.set(playerData.sleeper_id, playerData);
+              }
+            });
+          }
+        } catch (err) {
+          console.error('Failed to fetch player values from DynamoDB:', err);
+        }
+      }
+
+      // Enrich players with values and calculate position totals
+      const managersWithValues = managersWithRosters.map(manager => {
+        const enrichedPlayers = manager.players.map(player => {
+          const playerData = playerValuesMap.get(player.player_id) || {};
+          return {
+            ...player,
+            fantasy_calc_value: playerData.fantasy_calc_value || 0,
+            // Include any other fields from DynamoDB that might be useful
+            ...playerData
+          };
+        });
+
+        const values = calculatePositionValues(enrichedPlayers);
+
+        return {
+          ...manager,
+          players: enrichedPlayers,
+          values
+        };
+      });
 
       // Sort by display name initially
       managersWithValues.sort((a, b) => (a.display_name || '').localeCompare(b.display_name || ''));
