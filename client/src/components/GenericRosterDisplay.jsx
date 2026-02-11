@@ -100,11 +100,10 @@ function GenericRosterDisplay({ platform }) {
                     ...prev,
                     isSuperflex: effectiveIsSuperflex
                 }));
-                // Check if Fleaflicker platform to hint keeper settings if needed, but for now default 10 is fine
                 setSettingsLoaded(true);
             }
 
-            // 2. Fetch FantasyCalc Values with Effective Settings
+            // 2. Fetch FantasyCalc Values (This now calls your /batch endpoint)
             const calcValuesResponse = await getFantasyCalcValues({
                 isDynasty: rosterData.fcSettings.isDynasty,
                 numQbs: effectiveIsSuperflex ? 2 : 1,
@@ -112,29 +111,48 @@ function GenericRosterDisplay({ platform }) {
                 numTeams: effectiveNumTeams
             });
 
-            // 3. Merge FC Values
+            // 3. Merge FC Values (FIXED: Handles Array + Matches by ID)
             const fantasyCalcMap = new Map();
-            if (calcValuesResponse && typeof calcValuesResponse === 'object') {
-                Object.entries(calcValuesResponse).forEach(([cleansedNameKey, playerData]) => {
-                    if (playerData) {
-                        fantasyCalcMap.set(cleansedNameKey, playerData); // Store whole object
+
+            // Check if response is an Array (New Backend) or Object (Fallback)
+            if (Array.isArray(calcValuesResponse)) {
+                calcValuesResponse.forEach(playerData => {
+                    // Index by Sleeper ID for perfect matching
+                    if (playerData && playerData.sleeper_id) {
+                        fantasyCalcMap.set(String(playerData.sleeper_id), playerData);
+                    }
+                });
+            } else if (calcValuesResponse && typeof calcValuesResponse === 'object') {
+                // Legacy fallback: Index by Name if ID is missing (unlikely now)
+                Object.values(calcValuesResponse).forEach(playerData => {
+                    if (playerData && playerData.sleeper_id) {
+                        fantasyCalcMap.set(String(playerData.sleeper_id), playerData);
                     }
                 });
             }
 
             const mergedPlayers = (rosterData.players || []).map(player => {
-                // Match FC data
-                const fcData = fantasyCalcMap.get(cleanseName(player.full_name)) || {};
-                const tradeValue = fcData.value || 0;
+                // MATCH BY ID (Robust)
+                // We try sleeper_id, then player_id, then id
+                const lookUpId = String(player.sleeper_id || player.player_id || player.id);
+                const fcData = fantasyCalcMap.get(lookUpId) || {};
+
+                // Fallback: Name Match (Only if ID failed)
+                // const fcData = idMatch || fantasyCalcMap.get(cleanseName(player.full_name)) || {};
+
+                const tradeValue = fcData.fantasy_calc_value || 0;
 
                 return {
                     ...player,
+                    // Merge fields from Database
+                    team: fcData.team || player.team || 'FA',     // Fixes "FA" issue
+                    position: fcData.position || player.position, // Ensures Position is set
                     fantasy_calc_value: tradeValue,
                     trade_value: tradeValue,
-                    trend_30_day: fcData.trend30Day,
-                    redraft_value: fcData.redraftValue,
-                    fc_rank: fcData.overallRank,
-                    // Gap calculated later in sortedRoster to ensure ranks exist
+                    trend_30_day: fcData.trend_30_day,
+                    redraft_value: fcData.redraft_value,
+                    fc_rank: fcData.fc_rank,
+                    // Gap calculated later
                 };
             });
 

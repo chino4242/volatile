@@ -25,14 +25,27 @@ def fetch_fantasy_calc():
             if sleeper_id:
                 name = player_info.get('name', 'Unknown')
                 
-                processed.append({
+                # --- NEW FIELDS ADDED HERE ---
+                position = player_info.get('position')
+                team = player_info.get('team')
+                age = player_info.get('age')
+                # -----------------------------
+
+                record = {
                     'sleeper_id': str(sleeper_id),
-                    'player_name_original': name,
+                    'full_name': name,
                     'fantasy_calc_value': p.get('value'),
                     'fc_rank': p.get('overallRank'),
                     'trend_30_day': p.get('trend30Day'),
                     'redraft_value': p.get('redraftValue')
-                })
+                }
+
+                # Only add them if they exist (don't write None to DB if avoiding nulls)
+                if position: record['position'] = position
+                if team: record['team'] = team
+                if age: record['age'] = age
+
+                processed.append(record)
         
         print(f"Fetched {len(processed)} players from FantasyCalc")
         return processed
@@ -60,7 +73,6 @@ def write_to_dynamodb(players):
         
         with table.batch_writer() as batch:
             for player in players:
-                # Clean the record
                 item = {}
                 for key, value in player.items():
                     cleaned = clean_for_dynamodb(value)
@@ -81,14 +93,12 @@ if __name__ == '__main__':
     print("Starting DynamoDB Population Script")
     print("=" * 60)
     
-    # Fetch data
     players = fetch_fantasy_calc()
     
     if not players:
         print("❌ No player data fetched. Aborting.")
         exit(1)
     
-    # Write to DynamoDB
     success = write_to_dynamodb(players)
     
     if success:
