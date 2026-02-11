@@ -65,7 +65,7 @@ app.use('/api/admin', adminRoutes); // Mount Admin Routes (Specific first)
 app.use('/api/sleeper', [sleeperRosterRoutes, sleeperFreeAgentRoutes, sleeperLeagueRoutes]);
 app.use('/api/fleaflicker', fleaflickerRoutes);
 app.use('/api', fantasyCalcRoutes);
-app.use('/api', enrichedPlayerRoutes); // Mount /api/enriched-players endpoints
+app.use('/api/enriched-players', enrichedPlayerRoutes); // Mount enriched-players endpoints
 
 // Simple test route
 app.get('/api/hello', (req, res) => {

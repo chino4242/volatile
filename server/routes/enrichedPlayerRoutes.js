@@ -12,7 +12,8 @@ const docClient = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = process.env.PLAYER_VALUES_TABLE_NAME || 'PlayerValues';
 
 // GET All Enriched Players
-router.get('/enriched-players', async (req, res) => {
+// URL will be: /api/enriched-players/ (root of this resource)
+router.get('/', async (req, res) => {
     try {
         console.log(`Scanning table: ${TABLE_NAME}`);
         const params = {
@@ -45,7 +46,8 @@ router.get('/enriched-players', async (req, res) => {
 });
 
 // GET Single Player by Sleeper ID
-router.get('/enriched-players/sleeper/:id', async (req, res) => {
+// URL will be: /api/enriched-players/sleeper/:id
+router.get('/sleeper/:id', async (req, res) => {
     try {
         const sleeperId = req.params.id;
         const command = new GetCommand({
@@ -67,7 +69,8 @@ router.get('/enriched-players/sleeper/:id', async (req, res) => {
 });
 
 // POST Batch Get (Replacing logic from api_server.py)
-router.post('/enriched-players/batch', async (req, res) => {
+// URL will be: /api/enriched-players/batch
+router.post('/batch', async (req, res) => {
     try {
         const { sleeper_ids } = req.body;
 
