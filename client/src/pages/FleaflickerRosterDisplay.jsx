@@ -8,9 +8,17 @@ import './RosterDisplay.css'; // Import the shared CSS
 import PlayerTable from '../components/PlayerTable';
 import { usePlayerAnalysis } from '../hooks/usePlayerAnalysis';
 
+// Helper function to cleanse player names for matching
+// MUST match backend implementation in server/utils/nameUtils.js
 function cleanseName(name) {
   if (typeof name !== 'string') return '';
-  return name.replace(/[^\w\s']+/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+  return name
+    .toLowerCase()
+    .replace(/\b(jr|sr|ii|iii|iv|v)\b\.?/gi, '') // Remove suffixes with optional period
+    .replace(/[.'\",]/g, '') // Remove periods, apostrophes, quotes, and commas
+    .replace(/\s+/g, ' ') // Collapse multiple spaces to single space
+    .trim();
 }
 
 function FleaflickerRosterDisplay() {

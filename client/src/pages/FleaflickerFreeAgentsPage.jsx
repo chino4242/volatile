@@ -23,9 +23,17 @@ const Modal = ({ content, onClose }) => {
     );
 };
 
+// Helper function to cleanse player names for matching
+// MUST match backend implementation in server/utils/nameUtils.js
 function cleanseName(name) {
     if (typeof name !== 'string') return '';
-    return name.replace(/[^\w\s']+/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+    return name
+        .toLowerCase()
+        .replace(/\b(jr|sr|ii|iii|iv|v)\b\.?/gi, '') // Remove suffixes with optional period
+        .replace(/[.'\",]/g, '') // Remove periods, apostrophes, quotes, and commas
+        .replace(/\s+/g, ' ') // Collapse multiple spaces to single space
+        .trim();
 }
 
 // Helper function to parse auction values like "$63" into numbers
@@ -75,21 +83,50 @@ function FleaflickerFreeAgentsPage() {
                 roster.players.forEach(player => rosteredPlayerNames.add(cleanseName(player.full_name)))
             });
 
+            console.log(`[Free Agents Debug] Total players in master list: ${masterPlayerList.length}`);
+            console.log(`[Free Agents Debug] Rostered players: ${rosteredPlayerNames.size}`);
+
             const actualFreeAgents = masterPlayerList.filter(p => !rosteredPlayerNames.has(cleanseName(p.full_name)));
+            console.log(`[Free Agents Debug] Free agents after roster filter: ${actualFreeAgents.length}`);
 
             const fantasyCalcValuesMap = new Map(Object.entries(fantasyCalcValues));
+            console.log(`[Free Agents Debug] FantasyCalc players available: ${fantasyCalcValuesMap.size}`);
+
+            // Debug: Show sample cleansed names from both datasets
+            if (actualFreeAgents.length > 0) {
+                const sampleFA = actualFreeAgents.slice(0, 3).map(p => `${p.full_name} -> ${cleanseName(p.full_name)}`);
+                console.log(`[Free Agents Debug] Sample FA cleansed names:`, sampleFA);
+            }
+            if (fantasyCalcValuesMap.size > 0) {
+                const sampleFC = Array.from(fantasyCalcValuesMap.keys()).slice(0, 3);
+                console.log(`[Free Agents Debug] Sample FC cleansed names:`, sampleFC);
+            }
 
             // Prepare base list with FantasyCalc values merged
             const playersWithValue = actualFreeAgents.map(player => {
                 const fcData = fantasyCalcValuesMap.get(cleanseName(player.full_name)) || {};
                 return {
                     ...player,
-                    fantasy_calc_value: fcData.value || 0,
+                    position: fcData.position,              // Add position from FantasyCalc
+                    fantasy_calc_value: fcData.fantasy_calc_value || 0,
                     trend_30_day: fcData.trend30Day,
                     redraft_value: fcData.redraftValue,
-                    fc_rank: fcData.overallRank
+                    fc_rank: fcData.fc_rank
                 };
             });
+
+            const playersWithValues = playersWithValue.filter(p => p.fantasy_calc_value > 0);
+            console.log(`[Free Agents Debug] Players with FC values > 0: ${playersWithValues.length} / ${playersWithValue.length}`);
+
+            // Show sample matched and unmatched players
+            const matched = playersWithValue.filter(p => p.fantasy_calc_value > 0).slice(0, 3);
+            const unmatched = playersWithValue.filter(p => p.fantasy_calc_value === 0).slice(0, 3);
+            if (matched.length > 0) {
+                console.log(`[Free Agents Debug] Sample matched:`, matched.map(p => `${p.full_name} (${p.fantasy_calc_value})`));
+            }
+            if (unmatched.length > 0) {
+                console.log(`[Free Agents Debug] Sample unmatched:`, unmatched.map(p => `${p.full_name} -> ${cleanseName(p.full_name)}`));
+            }
 
             setBasePlayers(playersWithValue);
 
@@ -107,10 +144,28 @@ function FleaflickerFreeAgentsPage() {
 
     // Derived State: Rank and Filter
     const enrichedAndRanked = useMemo(() => {
+        console.log(`[Free Agents Debug] fullEnrichedList length: ${fullEnrichedList.length}`);
+
+        // Debug: Check position values
+        if (fullEnrichedList.length > 0) {
+            const positionCounts = {};
+            fullEnrichedList.forEach(p => {
+                const pos = p.position || 'UNDEFINED';
+                positionCounts[pos] = (positionCounts[pos] || 0) + 1;
+            });
+            console.log(`[Free Agents Debug] Position distribution:`, positionCounts);
+        }
+
         const skillPositions = ['QB', 'WR', 'RB', 'TE'];
+
         // Filter valid players
         const filtered = fullEnrichedList
             .filter(p => skillPositions.includes(p.position) && p.fantasy_calc_value > 0);
+
+        console.log(`[Free Agents Debug] After position + value filter: ${filtered.length}`);
+        if (filtered.length === 0 && fullEnrichedList.length > 0) {
+            console.log(`[Free Agents Debug] Sample player from fullEnrichedList:`, fullEnrichedList[0]);
+        }
 
         // Sort by value desc to assign Rank
         const ranked = filtered

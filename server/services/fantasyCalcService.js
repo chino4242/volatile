@@ -30,14 +30,16 @@ async function getFantasyCalcValues(isDynasty = true, numQbs = 2, ppr = 1, numTe
         players.forEach(playerData => {
             const playerName = playerData?.player?.name;
             const sleeperId = playerData?.player?.sleeperId; // Get the Sleeper ID
+            const position = playerData?.player?.position; // Get the position
             if (playerName) {
                 const cleansedName = cleanseName(playerName);
-                // The value object now includes the sleeperId
+                // The value object now includes the sleeperId and position
                 playerValueMap.set(cleansedName, {
                     fantasy_calc_value: playerData.value, // Mapped to frontend expected key
                     fc_rank: playerData.overallRank,      // Mapped to frontend expected key
                     position_rank: playerData.positionRank,
                     sleeper_id: sleeperId,
+                    position: position,                    // Include position for frontend filtering
                     trend_30_day: playerData.trend30Day,
                     redraft_value: playerData.redraftValue
                 });
