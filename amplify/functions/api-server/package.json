@@ -1,7 +1,16 @@
 {
   "name": "api-server",
-  "type": "module",
   "dependencies": {
-    "@vendia/serverless-express": "^4.12.6"
+    "@vendia/serverless-express": "^4.12.6",
+    "@aws-sdk/client-dynamodb": "^3.980.0",
+    "@aws-sdk/client-lambda": "^3.980.0",
+    "@aws-sdk/client-s3": "^3.980.0",
+    "@aws-sdk/lib-dynamodb": "^3.980.0",
+    "axios": "^1.9.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "fs-extra": "^11.3.3",
+    "multer": "^2.0.2"
   }
 }

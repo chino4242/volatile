@@ -2,6 +2,8 @@
 
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, ScanCommand } = require("@aws-sdk/lib-dynamodb");
+const fs = require('fs');
+const path = require('path');
 
 // DynamoDB Configuration
 const TABLE_NAME = process.env.PLAYER_VALUES_TABLE_NAME || 'PlayerValues';
@@ -14,6 +16,32 @@ const docClient = DynamoDBDocumentClient.from(client);
 let playerMap = new Map();
 let isLoaded = false;
 let cacheTimestamp = Date.now();
+
+/**
+ * Load player data from local JSON file (fallback for local dev)
+ */
+function loadPlayerDataFromLocalFile() {
+    console.log('--- PLAYER SERVICE: Loading from local JSON file... ---');
+    const filePath = path.join(__dirname, '../data/enriched_players_master.json');
+    
+    try {
+        const rawData = fs.readFileSync(filePath, 'utf8');
+        const players = JSON.parse(rawData);
+        
+        for (const player of players) {
+            if (player && player.sleeper_id) {
+                playerMap.set(String(player.sleeper_id), player);
+            }
+        }
+        
+        isLoaded = true;
+        console.log(`--- PLAYER SERVICE: Loaded ${playerMap.size} players from local file ---`);
+        return playerMap;
+    } catch (error) {
+        console.error('!!! ERROR loading from local file !!!', error.message);
+        throw error;
+    }
+}
 
 /**
  * Load player data from DynamoDB
@@ -75,11 +103,10 @@ async function loadPlayerDataFromDynamoDB() {
     } catch (error) {
         console.error('!!! ERROR loading player data from DynamoDB !!!');
         console.error('Error Message:', error.message);
-        console.error('Error Code:', error.code || 'N/A');
-        console.error('Error Name:', error.name || 'N/A');
-        console.error('Table Name:', TABLE_NAME);
-        console.error('Full Error:', JSON.stringify(error, null, 2));
-        throw error;
+        console.error('Falling back to local JSON file...');
+        
+        // Fallback to local file for development
+        return loadPlayerDataFromLocalFile();
     }
 }
 
