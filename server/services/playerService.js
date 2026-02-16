@@ -59,6 +59,11 @@ async function loadPlayerDataFromDynamoDB() {
         // Populate the map
         for (const player of items) {
             if (player && player.sleeper_id) {
+                // CRITICAL: Add 'full_name' alias for frontend adapter compatibility
+                // Frontend expects 'full_name' but DynamoDB has 'player_name_original'
+                if (player.player_name_original && !player.full_name) {
+                    player.full_name = player.player_name_original;
+                }
                 playerMap.set(String(player.sleeper_id), player);
             }
         }

@@ -5,8 +5,8 @@ import math
 from decimal import Decimal
 
 # Configuration
-TABLE_NAME = 'PlayerValue-ltn5ogs56nen3ohocnowzq2z5m-NONE'
-REGION = 'us-east-2'
+TABLE_NAME = 'PlayerValue-5krgd6zxqjdsjbtbwatcxxpd2a-NONE'
+REGION = 'us-east-1'
 
 def fetch_fantasy_calc():
     """Fetches player values from FantasyCalc API."""

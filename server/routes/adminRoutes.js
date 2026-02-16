@@ -82,34 +82,87 @@ router.post('/upload', upload.single('file'), async (req, res) => {
  * Triggers the Python enrichment Lambda.
  */
 router.post('/process', async (req, res) => {
-    console.log("[Admin] Triggering Python processing Lambda...");
+    console.log("[Admin] Triggering Python processing...");
 
-    if (!PROCESSOR_FUNCTION_NAME) {
-        return res.status(500).json({ error: 'Server misconfiguration: PROCESSOR_FUNCTION_NAME not set.' });
-    }
+    // Check if we're running locally or in AWS
+    // Force local mode unless explicitly in production AWS environment
+    const isLocal = process.env.NODE_ENV !== 'production' || !process.env.AWS_EXECUTION_ENV;
 
-    try {
-        const command = new InvokeCommand({
-            FunctionName: PROCESSOR_FUNCTION_NAME,
-            InvocationType: 'Event', // Asynchronous execution
-            Payload: JSON.stringify({}) // Pass any needed event data here
+    if (isLocal) {
+        // Run local Python processor
+        console.log("[Admin] Running local Python processor...");
+
+        const { spawn } = require('child_process');
+        const path = require('path');
+
+        // Path to the Python script
+        const scriptPath = path.join(__dirname, '..', '..', 'python_analysis', 'local_data_processor.py');
+
+        // Set PYTHONPATH environment variable
+        const env = { ...process.env, PYTHONPATH: path.join(__dirname, '..', '..', 'python_analysis') };
+
+        // Spawn Python process
+        const pythonProcess = spawn('python', [scriptPath], { env });
+
+        let output = '';
+        let errorOutput = '';
+
+        pythonProcess.stdout.on('data', (data) => {
+            const msg = data.toString();
+            console.log(`[Python] ${msg}`);
+            output += msg;
         });
 
-        const response = await lambdaClient.send(command);
+        pythonProcess.stderr.on('data', (data) => {
+            const msg = data.toString();
+            console.error(`[Python Error] ${msg}`);
+            errorOutput += msg;
+        });
 
-        console.log(`[Admin] Lambda Triggered. Status: ${response.StatusCode}`);
+        pythonProcess.on('close', (code) => {
+            if (code === 0) {
+                console.log("[Admin] Python processing completed successfully.");
+            } else {
+                console.error(`[Admin] Python processing failed with exit code ${code}`);
+            }
+        });
 
+        // Respond immediately (process runs in background)
         res.json({
-            message: 'Processing job submitted.',
-            statusCode: response.StatusCode
+            message: 'Processing job started locally. Check server logs for progress.',
+            mode: 'local'
         });
 
-    } catch (error) {
-        console.error("[Admin] Lambda Invoke Error:", error);
-        res.status(500).json({
-            error: 'Failed to trigger processing job.',
-            details: error.message
-        });
+    } else {
+        // AWS Lambda execution
+        if (!PROCESSOR_FUNCTION_NAME) {
+            return res.status(500).json({ error: 'Server misconfiguration: PROCESSOR_FUNCTION_NAME not set.' });
+        }
+
+        try {
+            const command = new InvokeCommand({
+                FunctionName: PROCESSOR_FUNCTION_NAME,
+                InvocationType: 'Event', // Asynchronous execution
+                Payload: JSON.stringify({}) // Pass any needed event data here
+            });
+
+            const response = await lambdaClient.send(command);
+
+            console.log(`[Admin] Lambda Triggered. Status: ${response.StatusCode}`);
+
+            res.json({
+                message: 'Processing job submitted.',
+                statusCode: response.StatusCode,
+                mode: 'lambda'
+            });
+
+        } catch (error) {
+            console.error("[Admin] Lambda Invoke Error:", error);
+            res.status(500).json({
+                error: 'Failed to trigger processing job.',
+                details: error.message
+            });
+        }
     }
 });
 

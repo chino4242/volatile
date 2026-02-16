@@ -4,19 +4,10 @@ import { fetchRosterData } from '../api/rosterAdapter';
 import { getFantasyCalcValues } from '../api/fantasyCalc';
 import PlayerTable from './PlayerTable';
 import { usePlayerAnalysis } from '../hooks/usePlayerAnalysis';
+import { getCellClassName, cleanseName } from '../utils/formatting';
 import '../pages/RosterDisplay.css'; // Reuse existing CSS
 
-// Helper to cleanse names for FantasyCalc matching (defined outside component to be stable)
-// Helper to cleanse names for FantasyCalc matching (defined outside component to be stable)
-const cleanseName = (name) => {
-    if (typeof name !== 'string') return '';
-    return name
-        .replace(/\b(jr|sr|ii|iii|iv|v)\b/gi, '') // Remove suffixes
-        .replace(/[^\w\s']+/g, '') // Remove punctuation
-        .replace(/\s+/g, ' ') // Normalize spaces
-        .trim()
-        .toLowerCase();
-};
+
 
 function GenericRosterDisplay({ platform }) {
     const { leagueId, rosterId } = useParams();

@@ -5,6 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { get } from '../api/apiService';
 import { getFantasyCalcValues } from '../api/fantasyCalc';
 import './RosterDisplay.css'; // Import shared CSS for table styling
+import { cleanseName } from '../utils/formatting';
 
 function FleaflickerHomePage() {
   const { leagueId: urlLeagueId } = useParams();
@@ -70,18 +71,14 @@ function FleaflickerHomePage() {
         numTeams: 12
       });
 
-      // Create a name cleansing helper
-      const cleanseName = (name) => {
-        if (!name) return '';
-        return name.toLowerCase().replace(/[^\w\s']+/g, '').replace(/\s+/g, ' ').trim();
-      };
+
 
       // Build FantasyCalc value map
       const fantasyCalcMap = new Map();
       if (calcValuesResponse && typeof calcValuesResponse === 'object') {
         Object.entries(calcValuesResponse).forEach(([cleansedNameKey, playerData]) => {
-          if (playerData && typeof playerData.value !== 'undefined') {
-            fantasyCalcMap.set(cleansedNameKey, playerData.value);
+          if (playerData && typeof playerData.fantasy_calc_value !== 'undefined') {
+            fantasyCalcMap.set(cleansedNameKey, playerData.fantasy_calc_value);
           }
         });
       }

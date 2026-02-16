@@ -4,11 +4,17 @@ require('dotenv').config();
 // Keep these error handlers at the top
 process.on('unhandledRejection', (reason, promise) => {
     console.error('SERVER CRITICAL ERROR: Unhandled Rejection at:', promise, 'reason:', reason);
-    process.exit(1);
+    // Only exit in production - in dev, log and continue
+    if (process.env.NODE_ENV === 'production') {
+        process.exit(1);
+    }
 });
 process.on('uncaughtException', (error) => {
     console.error('SERVER CRITICAL ERROR: Uncaught Exception:', error);
-    process.exit(1);
+    // Only exit in production - in dev, log and continue
+    if (process.env.NODE_ENV === 'production') {
+        process.exit(1);
+    }
 });
 
 const express = require('express');
@@ -27,7 +33,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // MANUAL CORS MIDDLEWARE - REMOVED IN FAVOR OF STANDARD CORS()
-// CORS is handled by Lambda Function URL - no need for manual CORS in Express
+// CORS is handled by Lambda Function URL - no need for manual CORS in Express manually but we need it for local dev
+app.use(cors());
 
 // Update the request logging middleware
 app.use((req, res, next) => {

@@ -1,5 +1,6 @@
 import { getSleeperRoster, getSleeperLeague } from './sleeper';
 import { getFleaflickerLeagueData, getFleaflickerLeagueSettings } from './fleaflicker';
+import { cleanseName } from '../utils/formatting';
 
 /**
  * Normalizes roster data from specific platforms (Sleeper, Fleaflicker) into a generic format.
@@ -56,14 +57,13 @@ export async function fetchRosterData(platform, leagueId, rosterId) {
         if (leagueData.master_player_list) {
             leagueData.master_player_list.forEach(p => {
                 // cleanse name for matching
-                const clean = p.full_name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+                const clean = cleanseName(p.full_name);
                 masterMap.set(clean, p);
             });
         }
-        console.log(`[Adapter] Master Map Size: ${masterMap.size}`);
 
         const normalizedPlayers = (specificRoster.players || []).map(p => {
-            const clean = (p.full_name || '').toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+            const clean = cleanseName(p.full_name);
             const master = masterMap.get(clean);
             if (!master) console.log(`[Adapter] No match for: ${clean} (Orig: ${p.full_name})`);
             return {

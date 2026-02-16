@@ -34,12 +34,12 @@ async function getFantasyCalcValues(isDynasty = true, numQbs = 2, ppr = 1, numTe
                 const cleansedName = cleanseName(playerName);
                 // The value object now includes the sleeperId
                 playerValueMap.set(cleansedName, {
-                    value: playerData.value,
-                    overallRank: playerData.overallRank,
-                    positionRank: playerData.positionRank,
-                    sleeperId: sleeperId, // Add the sleeperId to the map value
-                    trend30Day: playerData.trend30Day,
-                    redraftValue: playerData.redraftValue
+                    fantasy_calc_value: playerData.value, // Mapped to frontend expected key
+                    fc_rank: playerData.overallRank,      // Mapped to frontend expected key
+                    position_rank: playerData.positionRank,
+                    sleeper_id: sleeperId,
+                    trend_30_day: playerData.trend30Day,
+                    redraft_value: playerData.redraftValue
                 });
             }
         });
