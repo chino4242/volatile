@@ -4,6 +4,6 @@ exports.apiServer = defineFunction({
     name: 'api-server',
     entry: './handler.js',
     runtime: 20,
-    timeoutSeconds: 30,
-    memoryMB: 512
+    timeoutSeconds: 60,
+    memoryMB: 1024
 });

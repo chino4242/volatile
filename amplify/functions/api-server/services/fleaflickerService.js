@@ -13,7 +13,8 @@ async function getFleaflickerLeagueRosters(leagueId) {
     try {
         const response = await axios.get(url, {
             params: { sport: "NFL", league_id: leagueId },
-            headers: { 'User-Agent': 'Volatile/1.0 (FantasyFootballAnalysis)' }
+            headers: { 'User-Agent': 'Volatile/1.0 (FantasyFootballAnalysis)' },
+            timeout: 10000 // 10 second timeout
         });
         const jResponse = response.data;
 
@@ -56,7 +57,8 @@ async function getFleaflickerLeagueRules(leagueId) {
     try {
         const response = await axios.get(url, {
             params: { sport: "NFL", league_id: leagueId },
-            headers: { 'User-Agent': 'Volatile/1.0 (FantasyFootballAnalysis)' }
+            headers: { 'User-Agent': 'Volatile/1.0 (FantasyFootballAnalysis)' },
+            timeout: 10000
         });
         // Response structure: { rosterPositions: [...] }
         return response.data;

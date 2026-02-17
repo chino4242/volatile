@@ -24,7 +24,13 @@ router.get('/league/:leagueId/data', async (req, res) => {
 
     } catch (error) {
         console.error(`Error in Fleaflicker route /league/${leagueId}/data:`, error.message);
-        res.status(500).json({ error: "Failed to fetch Fleaflicker league data." });
+
+        // Handle specific errors
+        if (error.code === 'ECONNABORTED') {
+            return res.status(504).json({ error: "Fleaflicker API request timed out." });
+        }
+
+        res.status(500).json({ error: "Failed to fetch Fleaflicker league data.", details: error.message });
     }
 });
 
