@@ -59,10 +59,21 @@ app.use((err, req, res, next) => {
 let cachedServer;
 
 const handler = async (event, context) => {
-  if (!cachedServer) {
-    cachedServer = serverlessExpress({ app });
-  }
-  return cachedServer(event, context);
+    console.log('--- LAMBDA ENTRY (PROD) ---');
+    console.log('Event path:', event.rawPath || event.path);
+    console.log('Memory usage:', JSON.stringify(process.memoryUsage()));
+
+    try {
+        if (!cachedServer) {
+            cachedServer = serverlessExpress({ app });
+        }
+        const response = await cachedServer(event, context);
+        console.log('--- LAMBDA SUCCESS ---');
+        return response;
+    } catch (error) {
+        console.error('--- LAMBDA CRASH ---', error);
+        throw error;
+    }
 };
 
 module.exports = { handler };

@@ -8,13 +8,22 @@ const router = express.Router();
 router.get('/league/:leagueId/data', async (req, res) => {
     const { leagueId } = req.params;
     try {
+        console.log(`[Fleaflicker] Starting data fetch for league ${leagueId}`);
+        const start = Date.now();
+
         // 1. Get the current league rosters from the Fleaflicker service
         const allRosters = await getFleaflickerLeagueRosters(leagueId);
+        console.log(`[Fleaflicker] Rosters fetched in ${Date.now() - start}ms. Count: ${allRosters.length}`);
 
         // 2. Get the full master player list from our service
+        const playersStart = Date.now();
         const allPlayersMap = await getAllPlayers();
+        console.log(`[Fleaflicker] Player DB loaded in ${Date.now() - playersStart}ms. Size: ${allPlayersMap.size}`);
+
         // Convert the Map to an array for JSON serialization
         const masterPlayerList = Array.from(allPlayersMap.values());
+
+        console.log(`[Fleaflicker] Sending response. Total time: ${Date.now() - start}ms`);
 
         // 3. Return both the rosters and the complete master list
         res.json({
