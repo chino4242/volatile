@@ -1,6 +1,6 @@
-import { defineFunction } from '@aws-amplify/backend';
+const { defineFunction } = require('@aws-amplify/backend');
 
-export const apiServer = defineFunction({
+exports.apiServer = defineFunction({
     name: 'api-server',
     entry: './handler.js',
     runtime: 20,
