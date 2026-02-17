@@ -2,46 +2,17 @@
 
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, ScanCommand } = require("@aws-sdk/lib-dynamodb");
-const fs = require('fs');
-const path = require('path');
 
 // DynamoDB Configuration
-const TABLE_NAME = process.env.PLAYER_VALUES_TABLE_NAME || 'PlayerValues';
+const TABLE_NAME = process.env.PLAYER_VALUES_TABLE_NAME || 'PlayerValue';
 
 // Initialize DynamoDB client
-const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-2' });
+const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' });
 const docClient = DynamoDBDocumentClient.from(client);
 
 // In-memory cache
 let playerMap = new Map();
 let isLoaded = false;
-let cacheTimestamp = Date.now();
-
-/**
- * Load player data from local JSON file (fallback for local dev)
- */
-function loadPlayerDataFromLocalFile() {
-    console.log('--- PLAYER SERVICE: Loading from local JSON file... ---');
-    const filePath = path.join(__dirname, '../data/enriched_players_master.json');
-    
-    try {
-        const rawData = fs.readFileSync(filePath, 'utf8');
-        const players = JSON.parse(rawData);
-        
-        for (const player of players) {
-            if (player && player.sleeper_id) {
-                playerMap.set(String(player.sleeper_id), player);
-            }
-        }
-        
-        isLoaded = true;
-        console.log(`--- PLAYER SERVICE: Loaded ${playerMap.size} players from local file ---`);
-        return playerMap;
-    } catch (error) {
-        console.error('!!! ERROR loading from local file !!!', error.message);
-        throw error;
-    }
-}
 
 /**
  * Load player data from DynamoDB
@@ -53,23 +24,18 @@ async function loadPlayerDataFromDynamoDB() {
     }
 
     console.log('--- PLAYER SERVICE: Loading player data from DynamoDB... ---');
-    console.log('--- PLAYER SERVICE: Environment check:', {
-        TABLE_NAME,
-        env_var: process.env.PLAYER_VALUES_TABLE_NAME,
-        region: process.env.AWS_REGION
-    });
+    console.log('--- PLAYER SERVICE: Table:', TABLE_NAME);
 
     try {
         const params = {
             TableName: TABLE_NAME
         };
 
-        // Initial Scan
         const command = new ScanCommand(params);
         let response = await docClient.send(command);
         let items = response.Items || [];
 
-        // Handle Pagination (Scan limit is 1MB)
+        // Handle pagination
         while (response.LastEvaluatedKey) {
             console.log('--- PLAYER SERVICE: Scanning next page... ---');
             const nextParams = {
@@ -87,9 +53,8 @@ async function loadPlayerDataFromDynamoDB() {
         // Populate the map
         for (const player of items) {
             if (player && player.sleeper_id) {
-                // CRITICAL: Add 'full_name' alias for frontend adapter compatibility
-                // Frontend expects 'full_name' but DynamoDB has 'player_name_original'
-                if (player.player_name_original && !player.full_name) {
+                // Ensure full_name exists
+                if (!player.full_name && player.player_name_original) {
                     player.full_name = player.player_name_original;
                 }
                 playerMap.set(String(player.sleeper_id), player);
@@ -102,11 +67,9 @@ async function loadPlayerDataFromDynamoDB() {
         return playerMap;
     } catch (error) {
         console.error('!!! ERROR loading player data from DynamoDB !!!');
-        console.error('Error Message:', error.message);
-        console.error('Falling back to local JSON file...');
-        
-        // Fallback to local file for development
-        return loadPlayerDataFromLocalFile();
+        console.error('Error:', error.message);
+        console.error('Table:', TABLE_NAME);
+        throw error;
     }
 }
 
@@ -161,8 +124,6 @@ function createManagerRosterList(managerPlayerIds, allPlayersMap) {
     return rosterDetailsList;
 }
 
-
-// Export the functions that will be used by other parts of the application.
 module.exports = {
     getAllPlayers,
     createManagerRosterList,
